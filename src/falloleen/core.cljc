@@ -73,6 +73,19 @@
     (let [[s t] (second k)]
       (v+ a (v* s b) (v* s c)))))
 
+(defn relative?
+  "Returns true iff k is a valid relative position."
+  [k]
+  (or (contains? (methods point-of-box) k)
+      (and (vector? k) (= :relative (first k))
+           (let [v (second k)]
+             (and (vector? v)
+                  (= 2 (count v))
+                  (every? number? v)
+                  (every? #(<= 0 % 1) v))))))
+
+;;;;; Translation
+
 (defrecord FixedTranslation [x y]
   IFixedTranslation
   (offset [_]
@@ -86,6 +99,23 @@
         [(- x) (- y)]
         [x y]))))
 
+(defn- translation [v]
+  (if (relative? v)
+    (RelativeTranslation. v false)
+    (let [[x y] v]
+      (FixedTranslation. x y))))
+
+(defn- bt [v]
+  (if (relative? v)
+    (RelativeTranslation. v true)
+    (let [[x y] v]
+      (FixedTranslation. (- x) (- y)))))
+
+(defn translate [shape v]
+  (stack-transform shape (translation v)))
+
+;;;;; Reflection
+
 (defrecord Reflection [x y]
   LinearTransformation
   (matrix [_]
@@ -96,10 +126,35 @@
           off  (/ (* 2 m) m2+1)]
       [diag off off (- diag)])))
 
+(defn- reflection [[x y]]
+  (Reflection. x y))
+
+(defn reflect
+  ([shape axis]
+   (stack-transform shape (reflection axis)))
+  ([shape centre axis]
+   (stack-transform shape (translation centre) (reflection axis) (bt centre))))
+
+;;;;; Scaling
+
 (defrecord Scaling [x y]
   LinearTransformation
   (matrix [_]
     [x 0 0 y]))
+
+(defn- scaling [e]
+  (cond
+    (vector? e) (Scaling. (nth e 0) (nth e 1))
+    (number? e) (Scaling. e e)
+    :else       nil))
+
+(defn scale
+  ([shape extent]
+   (stack-transform shape (scaling extent)))
+  ([shape centre extent]
+   (stack-transform shape (translation centre) (scaling extent) (bt centre))))
+
+;;;;; Rotation
 
 (defrecord Rotation [angle]
   LinearTransformation
@@ -109,51 +164,25 @@
           s (math/sin r)]
       [c (- s) s c])))
 
-(defrecord AffineTransform [a b c d x y])
-
-(defn atxv [xform v]
-  (cond
-    (satisfies? LinearTransformation xform)
-    (mm (matrix xform) v)
-
-    (satisfies? ITranslation xform)
-    (mapv + (offset xform) v)
-
-    (instance? AffineTransform xform)
-    (let [{:keys [a b c d x y]} xform]
-      (mapv + [x y] (mm [a b c d] v)))
-
-    :else
-    ;; TODO: Handle errors
-    nil))
-
-(defn relative? [k]
-  (or (keyword? k)
-      (and (vector? k) (= :relative (first k)))))
-
-(defn translation [v]
-  (if (relative? v)
-    (RelativeTranslation. v false)
-    (let [[x y] v]
-      (FixedTranslation. x y))))
-
-(defn bt [v]
-  (if (relative? v)
-    (RelativeTranslation. v true)
-    (let [[x y] v]
-      (FixedTranslation. (- x) (- y)))))
-
-(defn rotation [angle]
+(defn- rotation [angle]
   (Rotation. angle))
 
-(defn scaling [e]
-  (cond
-    (vector? e) (Scaling. (nth e 0) (nth e 1))
-    (number? e) (Scaling. e e)
-    :else       nil))
+(defn rotate
+  ([shape angle]
+   (stack-transform shape (rotation angle)))
+  ([shape centre angle]
+   (stack-transform shape (translation centre) (rotation angle) (bt centre))))
 
-(defn reflection [[x y]]
-  (Reflection. x y))
+;;;;; Arbitrary Affine Transformation
+
+(defrecord AffineTransform [a b c d x y])
+
+(defn transform [shape {[a b c d] :matrix [x y] :translation}]
+  (stack-transform shape (AffineTransform. a b c d x y)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Shape Transformation Wrappers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (deftype Transformed [base stack
                       ^:volatile-mutable frame-cache
@@ -180,32 +209,24 @@
     (satisfies? Bounded shape)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;; ATX API
+;;;; Templates
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn translate [shape v]
-  (stack-transform shape (translation v)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Curves
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn rotate
-  ([shape angle]
-   (stack-transform shape (rotation angle)))
-  ([shape centre angle]
-   (stack-transform shape (translation centre) (rotation angle) (bt centre))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Shapes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn scale
-  ([shape extent]
-   (stack-transform shape (scaling extent)))
-  ([shape centre extent]
-   (stack-transform shape (translation centre) (scaling extent) (bt centre))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Compositing Operations
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn reflect
-  ([shape axis]
-   (stack-transform shape (reflection axis)))
-  ([shape centre axis]
-   (stack-transform shape (translation centre) (reflection axis) (bt centre))))
-
-(defn transform [shape {[a b c d] :matrix [x y] :translation}]
-  (stack-transform shape (AffineTransform. a b c d x y)))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Text Rendering
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; browser testing temp code
