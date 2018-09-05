@@ -105,7 +105,7 @@
     (let [[x y] v]
       (FixedTranslation. x y))))
 
-(defn- bt [v]
+(defn- reverse-translation [v]
   (if (relative? v)
     (RelativeTranslation. v true)
     (let [[x y] v]
@@ -113,6 +113,12 @@
 
 (defn translate [shape v]
   (stack-transform shape (translation v)))
+
+(defn transform-with-centre [shape centre xform]
+  (stack-transform shape
+                   (translation centre)
+                   xform
+                   (reverse-translation centre)))
 
 ;;;;; Reflection
 
@@ -133,7 +139,7 @@
   ([shape axis]
    (stack-transform shape (reflection axis)))
   ([shape centre axis]
-   (stack-transform shape (translation centre) (reflection axis) (bt centre))))
+   (transform-with-centre shape centre (reflection axis))))
 
 ;;;;; Scaling
 
@@ -152,7 +158,7 @@
   ([shape extent]
    (stack-transform shape (scaling extent)))
   ([shape centre extent]
-   (stack-transform shape (translation centre) (scaling extent) (bt centre))))
+   (transform-with-centre shape centre (scaling extent))))
 
 ;;;;; Rotation
 
@@ -171,7 +177,7 @@
   ([shape angle]
    (stack-transform shape (rotation angle)))
   ([shape centre angle]
-   (stack-transform shape (translation centre) (rotation angle) (bt centre))))
+   (transform-with-centre shape centre (rotation angle))))
 
 ;;;;; Arbitrary Affine Transformation
 
