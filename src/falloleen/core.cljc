@@ -1,5 +1,5 @@
 (ns falloleen.core
-  (:require [falloleen.math :as math]))
+  (:require [falloleen.math :as math :refer [mm v+ v*]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Protocols
@@ -43,14 +43,9 @@
 ;;;;; Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn mm [[a b c d] [x y]]
-  [(+ (* a x) (* b y)) (+ (* c x) (* d y))])
+(declare stack-transform)
 
-(defn v+ [& vs]
-  (apply mapv + vs))
-
-(defn v* [s [x y]]
-  [(* s x) (* s y)])
+;;;;; Relative logic
 
 (defmulti point-of-box
   "Locate the named point inside the given bounding box. The point can be a
