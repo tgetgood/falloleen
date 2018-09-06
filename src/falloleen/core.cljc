@@ -1,43 +1,7 @@
 (ns falloleen.core
-  (:require [falloleen.math :as math :refer [mm v+ v*]]))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;; Protocols
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defprotocol Bounded
-  "Shapes that are bounded in space."
-  (bounding-box [this]
-    "Returns a triple of vectors representing an offset (origin) and a basis."))
-
-(defprotocol Transformable
-  "Shapes that know how to apply affine transformations to themselves."
-  (apply-transform [this xform]))
-
-(defprotocol LinearTransformation
-  (matrix [this] "Returns the matrix form of this 2d linear transform."))
-
-(defprotocol IFixedTranslation
-  (offset [this]))
-
-(defprotocol IRelativeTranslation
-  "Translations relative to a shape: :centre, :bottom-left, etc.."
-  (realise [this frame]))
-
-(defprotocol IContainer
-  "Uniform access to contents of shape containers."
-  (contents [this]))
-
-(defprotocol ITemplate
-    "Macros for shapes."
-    (expand-template [this]))
-
-(defprotocol ICurve
-  (endpoints [this]))
-
-(defprotocol Boundary
-  "Curves which form the boundary of 2D shapes (are connected and closed)."
-  (interior [this]))
+  (:require [clojure.string :as string]
+            [falloleen.lang :as lang]
+            [net.cgrand.macrovich :as macros :include-macros true]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Transformations
@@ -45,182 +9,94 @@
 
 (declare stack-transform)
 
-;;;;; Relative logic
-
-(defmulti point-of-box
-  "Locate the named point inside the given bounding box. The point can be a
-  keyword such as :centre, :top, :bottom-left, etc.. or a vector of the form
-  [:relative [s t]] where 0 <= s, t <= 1 which gives a point relative to the
-  edges of the box. If the box is [[0 0] [1 0] [0 1]] then [:relative [s t]]
-  whould be the point [s t]."
-  (fn [k b] k))
-
-(defmethod point-of-box :centre
-  [_ [a b c]]
-  (v+ a (v* 0.5 (v+ b c))))
-
-(defmethod point-of-box :bottom-left
-  [_ [a b c]]
-  a)
-
-(defmethod point-of-box :top-right
-  [_ [a b c]]
-  (v+ a b c))
-
-(defmethod point-of-box :default
-  [k [a b c]]
-  (when (and (vector? k) (= :relative (first k)))
-    (let [[s t] (second k)]
-      (v+ a (v* s b) (v* s c)))))
-
-(defn relative?
-  "Returns true iff k is a valid relative position."
-  [k]
-  (or (contains? (methods point-of-box) k)
-      (and (vector? k) (= :relative (first k))
-           (let [v (second k)]
-             (and (vector? v)
-                  (= 2 (count v))
-                  (every? number? v)
-                  (every? #(<= 0 % 1) v))))))
-
 ;;;;; Translation
 
-(defrecord FixedTranslation [x y]
-  IFixedTranslation
-  (offset [_]
-    [x y]))
-
-(defrecord RelativeTranslation [k reverse?]
-  IRelativeTranslation
-  (realise [_ box]
-    (let [[x y] (point-of-box k box)]
-      (if reverse?
-        [(- x) (- y)]
-        [x y]))))
-
-(defn- translation [v]
-  (if (relative? v)
-    (RelativeTranslation. v false)
-    (let [[x y] v]
-      (FixedTranslation. x y))))
-
-(defn- reverse-translation [v]
-  (if (relative? v)
-    (RelativeTranslation. v true)
-    (let [[x y] v]
-      (FixedTranslation. (- x) (- y)))))
-
 (defn translate [shape v]
-  (stack-transform shape (translation v)))
-
-(defn transform-with-centre [shape centre xform]
-  (stack-transform shape
-                   (translation centre)
-                   xform
-                   (reverse-translation centre)))
+  (lang/stack-transform shape (lang/translation v)))
 
 ;;;;; Reflection
 
-(defrecord Reflection [x y]
-  LinearTransformation
-  (matrix [_]
-    (let [m  (/ y x)
-          m2   (* m m)
-          m2+1 (inc m2)
-          diag (/ (- 1 m2) m2+1)
-          off  (/ (* 2 m) m2+1)]
-      [diag off off (- diag)])))
-
-(defn- reflection [[x y]]
-  (Reflection. x y))
-
 (defn reflect
   ([shape axis]
-   (stack-transform shape (reflection axis)))
+   (lang/stack-transform shape (lang/reflection axis)))
   ([shape centre axis]
-   (transform-with-centre shape centre (reflection axis))))
+   (lang/transform-with-centre shape centre (lang/reflection axis))))
 
 ;;;;; Scaling
 
-(defrecord Scaling [x y]
-  LinearTransformation
-  (matrix [_]
-    [x 0 0 y]))
-
-(defn- scaling [e]
-  (cond
-    (vector? e) (Scaling. (nth e 0) (nth e 1))
-    (number? e) (Scaling. e e)
-    :else       nil))
-
 (defn scale
   ([shape extent]
-   (stack-transform shape (scaling extent)))
+   (lang/stack-transform shape (lang/scaling extent)))
   ([shape centre extent]
-   (transform-with-centre shape centre (scaling extent))))
+   (lang/transform-with-centre shape centre (lang/scaling extent))))
 
 ;;;;; Rotation
 
-(defrecord Rotation [angle]
-  LinearTransformation
-  (matrix [_]
-    (let [r (math/deg->rad angle)
-          c (math/cos r)
-          s (math/sin r)]
-      [c (- s) s c])))
-
-(defn- rotation [angle]
-  (Rotation. angle))
-
 (defn rotate
   ([shape angle]
-   (stack-transform shape (rotation angle)))
+   (lang/stack-transform shape (lang/rotation angle)))
   ([shape centre angle]
-   (transform-with-centre shape centre (rotation angle))))
+   (lang/transform-with-centre shape centre (lang/rotation angle))))
 
 ;;;;; Arbitrary Affine Transformation
 
-(defrecord AffineTransform [a b c d x y])
-
-(defn transform [shape {[a b c d] :matrix [x y] :translation}]
-  (stack-transform shape (AffineTransform. a b c d x y)))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;; Shape Transformation Wrappers
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(deftype Transformed [base stack
-                      ^:volatile-mutable frame-cache
-                      ^:volatile-mutable compile-cache])
-
-(defn transformed [base stack]
-  (Transformed. base stack nil nil))
-
-(defn transformed? [shape]
-  (instance? Transformed shape))
-
-(defn stack-transform
-  ([shape xform]
-   (if (transformed? shape)
-     (transformed (.-base shape) (conj (.-stack shape) xform))
-     (transformed shape [xform])))
-  ([shape xform & xforms]
-   (let [base (stack-transform shape xform)]
-     (transformed (.-base base) (into (.-stack base) xforms)))))
-
-(defn bounded? [shape]
-  (if (transformed? shape)
-    (bounded? (.-base shape))
-    (satisfies? Bounded shape)))
+(defn transform [shape xform]
+  (lang/stack-transform shape (lang/atx xform)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Templates
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn- type-case
+  "Returns a symbol in idiomatic TypeCase given one in clojure standard
+  symbol-case."
+  [sym]
+  (symbol (apply str (map string/capitalize (string/split (name sym) #"-")))))
+
+(macros/deftime
+  (defmacro deftemplate
+    "Defines a new shape template. Creates a new record whose name is
+  instance-name converted to UpperCamelCase as per record naming conventions.
+
+  The canonical instance of the new template will be bound to instance-name.
+
+  expansion will be executed in an environment when all keys of the template
+  name have been bound to symbols. Expansions must return a valid shape
+  (template or otherwise).
+
+  Optionally impls are protocol implementations as per defrecord."
+    {:style/indent [1 [1]]}
+    [instance-name template expansion & impls]
+    (let [template-name (type-case instance-name)
+          fields (map (comp symbol name) (keys template))]
+      `(do
+         ;; TODO: I can generate a spec from the field list and then check it's
+         ;; valid at expansion time. I think that would be a good place to find
+         ;; errors.
+         ;;
+         ;; The problem is that adding a spec/def into this macro expansion
+         ;; causes the whole thing to go haywire even though the relevant parts
+         ;; of the expansion don't change at all...
+         (defrecord ~template-name [~@fields]
+           falloleen.core/ITemplate
+           (falloleen.core/expand-template [this#]
+             ~expansion)
+           ~@impls)
+         (def ~instance-name
+           (~(symbol (str "map->" template-name)) ~template))))))
+
+(defn ^boolean template? [shape]
+  (satisfies? ITemplate shape))
+
+(defn template-expand-all [shape]
+  (if (template? shape)
+    (recur (expand-template shape))
+    shape))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Curves
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Shapes
