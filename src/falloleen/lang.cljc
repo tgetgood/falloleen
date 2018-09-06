@@ -43,7 +43,7 @@
 
 (defprotocol Bounded
   "Shapes that are bounded in space."
-  (bounding-box [this]
+  (frame [this]
     "Returns a triple of vectors representing an offset (origin) and a basis."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
