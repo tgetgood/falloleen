@@ -215,20 +215,17 @@
         y2      (+ y1 height)]
     (assoc polygon :verticies [[x1 y1] [x2 y1] [x2 y2] [x1 y2]])))
 
-;; FIXME: Needs shape algebra.
-
-#_(deftemplate annulus
-  {:style {} :inner-radius 1 :outer-radius 2 :centre [0 0]}
-  (region style
-          [(full-arc centre inner-radius)
-           (full-arc centre outer-radius true)]))
+(deftemplate annulus
+  {:inner-radius 1 :outer-radius 2 :centre [0 0]}
+  (lang/difference (assoc circle :centre centre :radius outer-radius)
+                   (assoc circle :centre centre :radius inner-radius)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Compositing Operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn with-style [style shape]
-  (lang/style style base))
+  (lang/style style shape))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Text Rendering

@@ -324,3 +324,16 @@
 ;; Cartesian plane, raw text renders upside down. This is easily fixed by the
 ;; `text` template in core.
 (defrecord RawText [style text])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Shape Algebra
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defrecord Union [shapes])
+
+(defrecord Intersection [shapes])
+
+(defrecord Difference [a b])
+
+(defn difference [a b]
+  (Difference. a b))
