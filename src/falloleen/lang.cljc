@@ -264,6 +264,8 @@
     (when (boundary? this)
       (Circle. centre radius))))
 
+(declare closed-spline)
+
 (defrecord Spline [segments]
   Curve
   (endpoints [_]
@@ -272,7 +274,7 @@
     (apply = (endpoints this)))
   (interior [this]
     (when (boundary? this)
-      (region segments))))
+      (closed-spline segments))))
 
 (defrecord ClosedSpline [segments]
   Curve
