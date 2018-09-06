@@ -46,6 +46,17 @@
   (frame [this]
     "Returns a triple of vectors representing an offset (origin) and a basis."))
 
+(defprotocol CompilationCache
+  "Shapes that can cache their compiled rendering instructions."
+  (retrieve [this])
+  (store [this]))
+
+(defprotocol Host
+  (base [this] "Returns underlying object.")
+  (width [this] "Returns width of window.")
+  (height [this] "Returns current height of frame".)
+  (render-fn [this] "Returns outlet (fn) for drawing to screen."))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Relative logic
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
