@@ -1,8 +1,17 @@
 (ns falloleen.core
-  (:require [clojure.string :as string]
-            [falloleen.lang :as lang]
-            [net.cgrand.macrovich :as macros :include-macros true])
-  #?(:cljs (:require-macros [falloleen.core :refer [deftemplate]])))
+  #?@(:clj
+       [(:require
+         [clojure.string :as string]
+         [falloleen.lang :as lang]
+         [falloleen.math :as math]
+         [net.cgrand.macrovich :as macros :include-macros true])]
+       :cljs
+       [(:require
+         [clojure.string :as string]
+         [falloleen.lang :as lang]
+         [falloleen.math :as math]
+         [net.cgrand.macrovich :as macros :include-macros true])
+        (:require-macros [falloleen.core :refer [deftemplate]])]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Transformations
@@ -57,8 +66,11 @@
 
   Optionally impls are protocol implementations as per defrecord."
     {:style/indent [1 :form [1]]}
-    [instance-name template expansion & impls]
-    (let [template-name (type-case instance-name)
+    [instance-name & args]
+    (let [docstr (if (string? (first args)) (first args) nil)
+          args (if docstr (rest args) args)
+          [template expansion & impls] args
+          template-name (type-case instance-name)
           fields (map (comp symbol name) (keys template))]
       `(do
          ;; TODO: I can generate a spec from the field list and then check it's
@@ -74,6 +86,7 @@
              ~expansion)
            ~@impls)
          (def ~instance-name
+           ~@(when docstr [docstr])
            (~(symbol (str "map->" template-name)) ~template))))))
 
 (defn ^boolean template? [shape]
@@ -88,9 +101,98 @@
 ;;;; Curves
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(def line
+  "Line segment."
+  (lang/map->Line
+   {:from [0 0]
+    :to   [1 1]}))
+
+(def bezier
+  "Bezier cubic."
+  (lang/map->Bezier
+   {:from [0 0]
+    :c1 [0 0]
+    :c2 [1 1]
+    :to [1 1]}))
+
+(def arc
+  "Circular arc."
+  (lang/map->Arc
+   {:centre [0 0]
+    :radius 1
+    :from   0
+    :to     math/pi
+    :clockwise? false}))
+
+(def circle
+  "A complete circle."
+  (lang/map->Circle
+   {:centre [0 0]
+    :radius 1}))
+
+(deftemplate polyline
+  "Returns the curve created by joining points together with line segments in
+  the order given."
+  {:points []}
+  (let [segs (map (fn [[x y]]
+                    (assoc line
+                           :from x
+                           :to   y))
+                   (partition 2 (interleave points (rest points))))]
+    (lang/spline segs)))
+
+;; REVIEW: I think I'm making a mistake: I've created a duality between
+;; boundaries and interiors, which is fine, but in real life you don't
+;; care. Everyone --- including mathematicians --- use the term circle to refer
+;; to both the boundary and the interior. It's a whole.
+;;
+;; Should I replace my notion of figures with whole shapes and just let styling
+;; determine what the programmer means? After all if you want to draw the
+;; boundary of a shape, you're referring to the boundary, if you want to fill
+;; it, the interior.
+;;
+;; The concrete problem is that I want to use rectangle interchangeably to refer
+;; to a box (outline) or to a patch (the interior).
+;;
+;; Do I actually have a problem? After all they're represented by the same
+;; boundary. If I just get rid of disc and use circle, and get rid of region in
+;; favour of spline, I think my problems will go away.
+;;
+;; Maybe I do want a second type of ClosedSpline, or some such which would allow
+;; me to know whether or not the interior of the spline makes sense?
+;;
+;; I'm confusing myself. I think I need to come up with some more complex
+;; examples to clarify.
+
+(deftemplate rectangle
+  {:corner [0 0]
+   :height 1
+   :width  1}
+  (let [[x1 y1] corner
+        x2      (+ x1 width)
+        y2      (+ y1 height)]
+    (assoc polyline
+           :points [[x1 y1] [x2 y1] [x2 y2] [x1 y2] [x1 y1]])))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Shapes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def disc
+  "The interior of a circle."
+  (lang/map->Disc
+   {:centre [0 0]
+    :radius 1}))
+
+;; FIXME: Needs shape algebra.
+
+#_(deftemplate annulus
+  {:style {} :inner-radius 1 :outer-radius 2 :centre [0 0]}
+  (region style
+          [(full-arc centre inner-radius)
+           (full-arc centre outer-radius true)]))
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Compositing Operations
@@ -100,9 +202,34 @@
 ;;;; Text Rendering
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(def raw-text
+  (lang/map->RawText
+   {:style  {:font "sans serif 10px"}
+    :text   ""}))
+
+(deftemplate text
+  "Single line of text. No wrapping or truncation."
+  {:style {:font "sans serif 10px"}
+   :text ""}
+  (-> raw-text
+      (assoc :text text :style style)
+      (reflect [1 0])))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; browser testing temp code
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare height)
+(declare render-fn)
+
+(defn draw!
+  "Draws shape to host. The host determines what drawing means. Return value
+  isn't generally meaningful."
+  [shape host]
+  ((render-fn host)
+   (-> shape
+       (reflect [1 0])
+       (translate [0 (- (height host))]))))
 
 #?(:cljs (enable-console-print!))
 

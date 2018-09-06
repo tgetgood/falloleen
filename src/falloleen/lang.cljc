@@ -27,7 +27,7 @@
   "Macros for shapes."
   (expand-template [this]))
 
-(defprotocol ICurve
+(defprotocol Curve
   "1 dimensional visual object."
   (endpoints [this])
   (boundary? [this]
@@ -37,7 +37,7 @@
     "Returns the shape corresponding to the interior of this curve, if it
     exists."))
 
-(defprotocol IShape
+(defprotocol Figure
   "2 dimensional visual object."
   (boundary [this]))
 
@@ -203,3 +203,106 @@
 
 (defn atx [{[a b c d] :matrix [x y] :translation}]
   (AffineTransform. a b c d x y))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Shapes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; We have a pattern of duals emerging, Circle and Disc, Spline and Region. Any
+;; other primitive 2d figure I add will need to have a dual boundary type.
+;;
+;; REVIEW: I think I can get away with just splines and circles. I could get
+;; away to a good approximation with just splines, but circles are so basic that
+;; not including them feels like a mistake.
+(declare Region.)
+(declare Disc,)
+
+;;;;; Curves
+
+(defrecord Line [from to]
+  Curve
+  (endpoints [_] [from to])
+  (boundary? [_] false)
+  (interior [_] nil))
+
+(defrecord Bezier [from to c1 c2]
+  Curve
+  (endpoints [_] [from to])
+  (boundary? [_] false)
+  (interior [_] nil))
+
+(defrecord Arc [centre radius from to clockwise?]
+  Curve
+  (endpoints [_]
+    (when ((< (math/abs (- from to)) (* 2 math/pi)))
+      (->> [from to]
+           (map (juxt math/cos math/sin))
+           (map #(v* radius %))
+           (mapv #(v+ % centre)))))
+  (boundary? [_]
+    (<= (* 2 math/pi) (math/abs (- from to))))
+  (interior [this]
+    (when (boundary? this)
+      (Disc. centre radius))))
+
+;; TODO: Need to assert on creation that the segments really are connected.
+(defrecord Spline [segments]
+  Curve
+  (endpoints [_]
+    [(first (endpoints (first segments))) (last (endpoints (last segments)))])
+  (boundary? [this]
+    (apply = (endpoints this)))
+  (interior [this]
+    (when (boundary? this)
+      (Region. segments))))
+
+(defn spline [segs]
+  (Spline. segs))
+
+;; REVIEW: This is awkward. A circle in geometry is a unit. When you think about
+;; circles, you don't want to think about whether they go clockwise or anti-,
+;; nor where the 'joining point' is.
+;;
+;; That's because those things don't need to be specified in a circle and so at
+;; the level of abstraction at which we generally operate, those things are not
+;; defined.
+;;
+;; This problem is that if you take the difference of two nested circles you
+;; should get an annulus, but I don't know of any drawing language that can do
+;; that without specifying that the circles travel in opposite directions.
+;;
+;; A good solution would be to add a solver that figures out a set of paths
+;; which have the correct winding number. The problem is that 1) that's hard,
+;; and 2) you're now computing something which the gpu has to go and
+;; invert. That's wasteful. There has to be a better way.
+;;
+;; I'm not going to compromise and let proceedural details bleed into the high
+;; level logic this time around. It was a mistake last time and even though I
+;; don't see a solution, I'd rather wait one out than wind up in that mess
+;; again.
+(defrecord Circle [centre radius]
+  Curve
+  (endpoints [_] nil)
+  (boundary? [_] true)
+  (interior [_] (Disc. centre radius)))
+
+;;;;; Figures (2D)
+
+(defrecord Disc [centre radius]
+  Figure
+  (boundary [_]
+    (Circle. centre radius)))
+
+(defrecord Region [segments]
+  Figure
+  (boundary [_] (Spline. segments)))
+
+(defn region [segs]
+  (Region. segs))
+
+;;;;; Text
+
+;; Note that since we're inverting coordinates systematically to get back to the
+;; Cartesian plane, raw text renders upside down. This is easily fixed by the
+;; `text` template in core.
+(defrecord RawText [style text])
