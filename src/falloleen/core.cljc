@@ -151,7 +151,14 @@
                            :from x
                            :to   y))
                    (partition 2 (interleave points (rest points))))]
-    (path segs)))
+    (path segs))
+
+  lang/Bounded
+  (frame [{:keys [points]}]
+    (let [[[x y] [x' y']] (math/bound-points points)
+          dx (- x' x)
+          dy (- y' y)]
+      [[x y] [dx 0] [0 dy]])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Shapes
@@ -180,6 +187,25 @@
 ;; I'm confusing myself. I think I need to come up with some more complex
 ;; examples to clarify.
 
+(deftemplate polygon
+  "Create a polygon from a list of verticies. "
+  {:verticies []}
+  (let [edges (map (fn [[x y]]
+                    (assoc line
+                           :from x
+                           :to   y))
+                   (partition 2 (interleave verticies
+                                            (concat (rest verticies)
+                                                    [(first verticies)]))))]
+    (region edges))
+
+  lang/Bounded
+  (frame [{:keys [verticies]}]
+    (let [[[x y] [x' y']] (math/bound-points verticies)
+          dx (- x' x)
+          dy (- y' y)]
+      [[x y] [dx 0] [0 dy]])))
+
 (deftemplate rectangle
   {:corner [0 0]
    :height 1
@@ -187,7 +213,7 @@
   (let [[x1 y1] corner
         x2      (+ x1 width)
         y2      (+ y1 height)]
-    (region [[x1 y1] [x2 y1] [x2 y2] [x1 y2] [x1 y1]])))
+    (assoc polygon :verticies [[x1 y1] [x2 y1] [x2 y2] [x1 y2]])))
 
 ;; FIXME: Needs shape algebra.
 
@@ -197,11 +223,12 @@
           [(full-arc centre inner-radius)
            (full-arc centre outer-radius true)]))
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Compositing Operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn with-style [style shape]
+  (lang/style style base))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Text Rendering

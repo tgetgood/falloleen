@@ -1,5 +1,5 @@
 (ns falloleen.lang
-    (:require [falloleen.math :as math :refer [mm v+ v*]]))
+    (:require [falloleen.math :as math :refer [mm v+ v- v*]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Protocols
@@ -115,7 +115,6 @@
     (bounded? (.-base shape))
     (satisfies? Bounded shape)))
 
-
 ;;;;; Translation
 
 (defrecord FixedTranslation [x y]
@@ -209,6 +208,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defrecord Line [from to]
+  Bounded
+  (frame [_]
+    (let [[dx dy] (v- to from)]
+      [from [dx 0] [0 dy]]))
+
   Curve
   (endpoints [_] [from to])
   (boundary? [_] false)
@@ -242,6 +246,13 @@
 ;; don't see a solution, I'd rather wait one out than wind up in that mess
 ;; again.
 (defrecord Circle [centre radius]
+  Bounded
+  (frame [_]
+    (let [[x y] centre]
+      [[(- x radius) (- y radius)]
+       [(* 2 radius) 0]
+       [0 (* 2 radius)]]))
+
   Figure
   (boundary [this] this)
 
