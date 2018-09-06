@@ -215,7 +215,7 @@
 ;; away to a good approximation with just splines, but circles are so basic that
 ;; not including them feels like a mistake.
 (declare Region.)
-(declare Disc,)
+(declare Circle.)
 
 ;;;;; Curves
 
@@ -243,7 +243,7 @@
     (<= (* 2 math/pi) (math/abs (- from to))))
   (interior [this]
     (when (boundary? this)
-      (Disc. centre radius))))
+      (Circle. centre radius))))
 
 ;; TODO: Need to assert on creation that the segments really are connected.
 (defrecord Spline [segments]
@@ -284,14 +284,9 @@
   Curve
   (endpoints [_] nil)
   (boundary? [_] true)
-  (interior [_] (Disc. centre radius)))
+  (interior [this] this))
 
 ;;;;; Figures (2D)
-
-(defrecord Disc [centre radius]
-  Figure
-  (boundary [_]
-    (Circle. centre radius)))
 
 (defrecord Region [segments]
   Figure

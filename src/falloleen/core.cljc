@@ -141,6 +141,10 @@
                    (partition 2 (interleave points (rest points))))]
     (lang/spline segs)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; Shapes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;; REVIEW: I think I'm making a mistake: I've created a duality between
 ;; boundaries and interiors, which is fine, but in real life you don't
 ;; care. Everyone --- including mathematicians --- use the term circle to refer
@@ -173,16 +177,6 @@
         y2      (+ y1 height)]
     (assoc polyline
            :points [[x1 y1] [x2 y1] [x2 y2] [x1 y2] [x1 y1]])))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Shapes
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(def disc
-  "The interior of a circle."
-  (lang/map->Disc
-   {:centre [0 0]
-    :radius 1}))
 
 ;; FIXME: Needs shape algebra.
 
