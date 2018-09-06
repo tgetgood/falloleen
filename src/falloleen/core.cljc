@@ -266,11 +266,12 @@
 
 ;; define your app data so that it doesn't get over-written on reload
 
-(defonce app-state (atom {:text "Hello world!"}))
+(def test-image
+  [(assoc circle :radius 200)
+   (translate (assoc text :text "Hi there") [200 200])])
 
-(defn init [])
+(defn ^:export init []
+  (draw! {} test-image))
 
 (defn on-js-reload []
   (init))
-
-(init)

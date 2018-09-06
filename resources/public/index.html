@@ -1,15 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" style="height:100%;">
 	<head>
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<link rel="icon" href="https://clojurescript.org/images/cljs-logo-icon-32.png">
 	</head>
-	<body>
-		<div id="app">
-			<h2>Figwheel template</h2>
-			<p>Checkout your developer console.</p>
+	<body style="height:100%;overflow:hidden;margin:0;"
+		<div id="app" style="height:100%;">
+			<div id="canvas-container" style="height:100%;">
+				<canvas tabindex="1" id="canvas"></canvas>
+			</div>
 		</div>
-		<script src="js/compiled/falloleen.js" type="text/javascript"></script>
+		<script src="js/compiled/falloleen.js"></script>
+		<script>falloleen.core.init();</script>
 	</body>
 </html>
