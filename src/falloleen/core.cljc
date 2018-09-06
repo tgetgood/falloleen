@@ -65,7 +65,7 @@
   (template or otherwise).
 
   Optionally impls are protocol implementations as per defrecord."
-    {:style/indent [1 :form [1]]}
+    {:style/indent [1 :form :form :form [1]]}
     [instance-name & args]
     (let [docstr (if (string? (first args)) (first args) nil)
           args (if docstr (rest args) args)
