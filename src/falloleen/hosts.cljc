@@ -19,4 +19,4 @@
          (base [_] elem)
          (width [_] (obj/get elem "width"))
          (height [_] (obj/get elem "height"))
-         (render [_ shape] (constantly nil))))))
+         (render [_ shape] (println shape))))))

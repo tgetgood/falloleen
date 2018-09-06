@@ -1,17 +1,10 @@
 (ns falloleen.core
-  #?@(:clj
-       [(:require
-         [clojure.string :as string]
-         [falloleen.lang :as lang]
-         [falloleen.math :as math]
-         [net.cgrand.macrovich :as macros :include-macros true])]
-       :cljs
-       [(:require
-         [clojure.string :as string]
-         [falloleen.lang :as lang]
-         [falloleen.math :as math]
-         [net.cgrand.macrovich :as macros :include-macros true])
-        (:require-macros [falloleen.core :refer [deftemplate]])]))
+  (:require [clojure.string :as string]
+            [falloleen.hosts :as hosts]
+            [falloleen.lang :as lang]
+            [falloleen.math :as math]
+            [net.cgrand.macrovich :as macros :include-macros true])
+  #?(:cljs (:require-macros [falloleen.core :refer [deftemplate]])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Transformations
@@ -259,16 +252,14 @@
 
 #?(:cljs (enable-console-print!))
 
-(println "This text is printed from src/falloleen/core.cljs. Go ahead and edit it and see reloading in action.")
-
-;; define your app data so that it doesn't get over-written on reload
-
 (def test-image
   [(assoc circle :radius 200)
    (translate (assoc text :text "Hi there") [200 200])])
 
+(defonce host (hosts/default-host {:size :fullscreen}))
+
 (defn ^:export init []
-  (draw! {} test-image))
+  (draw! test-image host))
 
 (defn on-js-reload []
   (init))
