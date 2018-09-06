@@ -70,5 +70,8 @@
 (defn v+ [& vs]
   (apply mapv + vs))
 
+(defn v- [& vs]
+  (apply mapv - vs))
+
 (defn v* [s [x y]]
   [(* s x) (* s y)])
