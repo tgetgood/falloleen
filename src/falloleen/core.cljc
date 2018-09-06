@@ -252,10 +252,10 @@
   "Draws shape to host. The host determines what drawing means. Return value
   isn't generally meaningful."
   [shape host]
-  ((lang/render-fn host)
-   (-> shape
-       (reflect [1 0])
-       (translate [0 (- (lang/height host))]))))
+  (lang/render host
+               (-> shape
+                   (reflect [1 0])
+                   (translate [0 (- (lang/height host))]))))
 
 #?(:cljs (enable-console-print!))
 

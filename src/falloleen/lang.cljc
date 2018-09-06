@@ -53,9 +53,9 @@
 
 (defprotocol Host
   (base [this] "Returns underlying object.")
-  (width [this] "Returns width of window.")
-  (height [this] "Returns current height of frame".)
-  (render-fn [this] "Returns outlet (fn) for drawing to screen."))
+  (width [this] "Returns current width of the window.")
+  (height [this] "Returns current height of the window".)
+  (render [this shape] "Render shape to this host."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Relative logic
