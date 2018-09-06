@@ -98,7 +98,7 @@
     shape))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; Curves
+;;;; Built in Shapes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def line
@@ -130,6 +130,18 @@
    {:centre [0 0]
     :radius 1}))
 
+(defn path
+  "Takes a sequence of curve segments, each beginning where the previous
+  ended. Returns a path consisting of those segments glued together."
+  [segs]
+  (lang/spline segs))
+
+(defn region
+  "Given a closed, connected sequence of curve segments, returns the region
+  bounded by that path."
+  [segs]
+  (lang/closed-spline segs))
+
 (deftemplate polyline
   "Returns the curve created by joining points together with line segments in
   the order given."
@@ -139,7 +151,7 @@
                            :from x
                            :to   y))
                    (partition 2 (interleave points (rest points))))]
-    (lang/spline segs)))
+    (path segs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Shapes
@@ -175,8 +187,7 @@
   (let [[x1 y1] corner
         x2      (+ x1 width)
         y2      (+ y1 height)]
-    (assoc polyline
-           :points [[x1 y1] [x2 y1] [x2 y2] [x1 y2] [x1 y1]])))
+    (region [[x1 y1] [x2 y1] [x2 y2] [x1 y2] [x1 y1]])))
 
 ;; FIXME: Needs shape algebra.
 

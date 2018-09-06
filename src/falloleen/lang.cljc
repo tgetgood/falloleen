@@ -208,17 +208,6 @@
 ;;;;; Shapes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; We have a pattern of duals emerging, Circle and Disc, Spline and Region. Any
-;; other primitive 2d figure I add will need to have a dual boundary type.
-;;
-;; REVIEW: I think I can get away with just splines and circles. I could get
-;; away to a good approximation with just splines, but circles are so basic that
-;; not including them feels like a mistake.
-(declare Region.)
-(declare Circle.)
-
-;;;;; Curves
-
 (defrecord Line [from to]
   Curve
   (endpoints [_] [from to])
@@ -230,34 +219,6 @@
   (endpoints [_] [from to])
   (boundary? [_] false)
   (interior [_] nil))
-
-(defrecord Arc [centre radius from to clockwise?]
-  Curve
-  (endpoints [_]
-    (when ((< (math/abs (- from to)) (* 2 math/pi)))
-      (->> [from to]
-           (map (juxt math/cos math/sin))
-           (map #(v* radius %))
-           (mapv #(v+ % centre)))))
-  (boundary? [_]
-    (<= (* 2 math/pi) (math/abs (- from to))))
-  (interior [this]
-    (when (boundary? this)
-      (Circle. centre radius))))
-
-;; TODO: Need to assert on creation that the segments really are connected.
-(defrecord Spline [segments]
-  Curve
-  (endpoints [_]
-    [(first (endpoints (first segments))) (last (endpoints (last segments)))])
-  (boundary? [this]
-    (apply = (endpoints this)))
-  (interior [this]
-    (when (boundary? this)
-      (Region. segments))))
-
-(defn spline [segs]
-  (Spline. segs))
 
 ;; REVIEW: This is awkward. A circle in geometry is a unit. When you think about
 ;; circles, you don't want to think about whether they go clockwise or anti-,
@@ -281,21 +242,62 @@
 ;; don't see a solution, I'd rather wait one out than wind up in that mess
 ;; again.
 (defrecord Circle [centre radius]
+  Figure
+  (boundary [this] this)
+
   Curve
   (endpoints [_] nil)
   (boundary? [_] true)
   (interior [this] this))
 
-;;;;; Figures (2D)
+(defrecord Arc [centre radius from to clockwise?]
+  Curve
+  (endpoints [_]
+    (when ((< (math/abs (- from to)) (* 2 math/pi)))
+      (->> [from to]
+           (map (juxt math/cos math/sin))
+           (map #(v* radius %))
+           (mapv #(v+ % centre)))))
+  (boundary? [_]
+    (<= (* 2 math/pi) (math/abs (- from to))))
+  (interior [this]
+    (when (boundary? this)
+      (Circle. centre radius))))
 
-(defrecord Region [segments]
+(defrecord Spline [segments]
+  Curve
+  (endpoints [_]
+    [(first (endpoints (first segments))) (last (endpoints (last segments)))])
+  (boundary? [this]
+    (apply = (endpoints this)))
+  (interior [this]
+    (when (boundary? this)
+      (region segments))))
+
+(defrecord ClosedSpline [segments]
+  Curve
+  (endpoints [_] nil)
+  (boundary? [_] true)
+  (interior [this] this)
+
   Figure
-  (boundary [_] (Spline. segments)))
+  (boundary [this] this))
 
-(defn region [segs]
-  (Region. segs))
+(defn spline [segs]
+  ;; FIXME: Here's where we enforce connected segments.
+  (Spline. segs))
 
+(defn closed-spline [segs]
+  ;; FIXME: Enforce closed connected path
+  (ClosedSpline. segs))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Composites
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Text
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; Note that since we're inverting coordinates systematically to get back to the
 ;; Cartesian plane, raw text renders upside down. This is easily fixed by the
