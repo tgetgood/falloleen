@@ -233,13 +233,13 @@
 
 (def raw-text
   (lang/map->RawText
-   {:style  {:font "sans serif 10px"}
-    :text   ""}))
+   {:style {:font "sans serif 10px"}
+    :text  ""}))
 
 (deftemplate text
   "Single line of text. No wrapping or truncation."
   {:style {:font "sans serif 10px"}
-   :text ""}
+   :text  ""}
   (-> raw-text
       (assoc :text text :style style)
       (reflect [1 0])))

@@ -340,6 +340,9 @@
 ;;;;; Shape Algebra
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; REVIEW: Do I need to implement clipping, or should the idiom be to intersect
+;; with a transparent shape? That intersection will be implemented as some kind
+;; of clipping, but that's another level of abstraction.
 (defrecord Union [shapes])
 
 (defrecord Intersection [shapes])
