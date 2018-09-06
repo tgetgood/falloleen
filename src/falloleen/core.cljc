@@ -1,20 +1,16 @@
 (ns falloleen.core
   (:require [clojure.string :as string]
             [falloleen.lang :as lang]
-            [net.cgrand.macrovich :as macros :include-macros true]))
+            [net.cgrand.macrovich :as macros :include-macros true])
+  #?(:cljs (:require-macros [falloleen.core :refer [deftemplate]])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declare stack-transform)
-
-;;;;; Translation
-
-(defn translate [shape v]
+(defn translate
+  [shape v]
   (lang/stack-transform shape (lang/translation v)))
-
-;;;;; Reflection
 
 (defn reflect
   ([shape axis]
@@ -22,15 +18,11 @@
   ([shape centre axis]
    (lang/transform-with-centre shape centre (lang/reflection axis))))
 
-;;;;; Scaling
-
 (defn scale
   ([shape extent]
    (lang/stack-transform shape (lang/scaling extent)))
   ([shape centre extent]
    (lang/transform-with-centre shape centre (lang/scaling extent))))
-
-;;;;; Rotation
 
 (defn rotate
   ([shape angle]
@@ -38,9 +30,8 @@
   ([shape centre angle]
    (lang/transform-with-centre shape centre (lang/rotation angle))))
 
-;;;;; Arbitrary Affine Transformation
-
-(defn transform [shape xform]
+(defn transform
+  [shape xform]
   (lang/stack-transform shape (lang/atx xform)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -48,8 +39,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- type-case
-  "Returns a symbol in idiomatic TypeCase given one in clojure standard
-  symbol-case."
+  "Converts idomatic kebab-case to UpperCamelCase for type names."
   [sym]
   (symbol (apply str (map string/capitalize (string/split (name sym) #"-")))))
 
@@ -58,14 +48,15 @@
     "Defines a new shape template. Creates a new record whose name is
   instance-name converted to UpperCamelCase as per record naming conventions.
 
-  The canonical instance of the new template will be bound to instance-name.
+  The canonical instance of the new template will be bound to instance-name. The
+  canonical instance is the expansion of the default template arguments.
 
-  expansion will be executed in an environment when all keys of the template
+  Expansion will be executed in an environment when all keys of the template
   name have been bound to symbols. Expansions must return a valid shape
   (template or otherwise).
 
   Optionally impls are protocol implementations as per defrecord."
-    {:style/indent [1 [1]]}
+    {:style/indent [1 :form [1]]}
     [instance-name template expansion & impls]
     (let [template-name (type-case instance-name)
           fields (map (comp symbol name) (keys template))]
@@ -78,25 +69,24 @@
          ;; causes the whole thing to go haywire even though the relevant parts
          ;; of the expansion don't change at all...
          (defrecord ~template-name [~@fields]
-           falloleen.core/ITemplate
-           (falloleen.core/expand-template [this#]
+           falloleen.lang/ITemplate
+           (falloleen.lang/expand-template [this#]
              ~expansion)
            ~@impls)
          (def ~instance-name
            (~(symbol (str "map->" template-name)) ~template))))))
 
 (defn ^boolean template? [shape]
-  (satisfies? ITemplate shape))
+  (satisfies? lang/ITemplate shape))
 
 (defn template-expand-all [shape]
   (if (template? shape)
-    (recur (expand-template shape))
+    (recur (lang/expand-template shape))
     shape))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Curves
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Shapes
