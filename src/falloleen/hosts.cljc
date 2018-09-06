@@ -19,4 +19,10 @@
          (base [_] elem)
          (width [_] (obj/get elem "width"))
          (height [_] (obj/get elem "height"))
-         (render [_ shape] (println shape))))))
+         (render [_ shape] (println shape))))
+     :clj
+     (reify lang/Host
+       (base [_] nil)
+       (width [_] 0)
+       (height [_] 0)
+       (render [_ _] nil))))
