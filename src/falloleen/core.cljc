@@ -157,29 +157,6 @@
 ;;;; Shapes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; REVIEW: I think I'm making a mistake: I've created a duality between
-;; boundaries and interiors, which is fine, but in real life you don't
-;; care. Everyone --- including mathematicians --- use the term circle to refer
-;; to both the boundary and the interior. It's a whole.
-;;
-;; Should I replace my notion of figures with whole shapes and just let styling
-;; determine what the programmer means? After all if you want to draw the
-;; boundary of a shape, you're referring to the boundary, if you want to fill
-;; it, the interior.
-;;
-;; The concrete problem is that I want to use rectangle interchangeably to refer
-;; to a box (outline) or to a patch (the interior).
-;;
-;; Do I actually have a problem? After all they're represented by the same
-;; boundary. If I just get rid of disc and use circle, and get rid of region in
-;; favour of spline, I think my problems will go away.
-;;
-;; Maybe I do want a second type of ClosedSpline, or some such which would allow
-;; me to know whether or not the interior of the spline makes sense?
-;;
-;; I'm confusing myself. I think I need to come up with some more complex
-;; examples to clarify.
-
 (deftemplate polygon
   "Create a polygon from a list of verticies. "
   {:verticies []}
