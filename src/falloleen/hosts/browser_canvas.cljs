@@ -14,6 +14,9 @@
   (let [container-id (str id "-container")]
     (js/document.getElementById container-id)))
 
+(defn render-context [elem]
+  (.getContext elem "2d"))
+
 (defn canvas-container-dimensions [id]
   (let [cc (canvas-container id)]
     [(obj/get cc "clientWidth") (obj/get cc "clientHeight")]))

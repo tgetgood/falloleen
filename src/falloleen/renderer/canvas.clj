@@ -34,7 +34,7 @@
      `(do
         (deftype ~tname ~args
           falloleen.renderer.canvas/IExec
-          (exec [_# ctx# states#]
+          (exec [this# ctx# states#]
             (~(cmd-name n) ctx# ~@args)
             states#)
 

@@ -230,13 +230,13 @@
   (lang/render host
                (-> shape
                    (reflect [1 0])
-                   (translate [0 (- (lang/height host))]))))
+                   (translate [0 (lang/height host)]))))
 
 #?(:cljs (enable-console-print!))
 
 (def test-image
-  [(assoc circle :radius 200)
-   (translate (assoc text :text "Hi there") [200 200])])
+  [(scale  (assoc line :to [400 400]) 10)
+   (translate (assoc text :text "Hi there") [100 200])])
 
 (defonce host (hosts/default-host {:size :fullscreen}))
 

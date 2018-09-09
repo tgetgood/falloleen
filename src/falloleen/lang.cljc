@@ -15,6 +15,7 @@
 (defprotocol AffineTransformation
   (atx [this]
     "Return the 2d Affine Transformation matrix in the form [a b c d x y"))
+
 (defprotocol IFixedTranslation
   (offset [this]))
 
@@ -136,7 +137,7 @@
 
   AffineTransformation
   (atx [_]
-    (transduce (map atx) math/comp-atx stack)))
+    (transduce (map atx) math/comp-atx (reverse stack))))
 
 (defn transformed [base stack]
   (TransformedShape. base stack nil nil))
@@ -304,6 +305,7 @@
 ;; level logic this time around. It was a mistake last time and even though I
 ;; don't see a solution, I'd rather wait one out than wind up in that mess
 ;; again.
+
 (defrecord Circle [centre radius]
   Bounded
   (frame [_]
