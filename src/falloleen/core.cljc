@@ -194,7 +194,14 @@
 ;;;; Compositing Operations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; REVIEW: I'm providing 2 fns here because I want styling to play syntactically
+;; with both the threading style of transforms and standard clojure code. I
+;; think `with-style` is more readable in any context except affine threading.
+
 (defn with-style [style shape]
+  (lang/style style shape))
+
+(defn style [shape style]
   (lang/style style shape))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -203,15 +210,13 @@
 
 (def raw-text
   (lang/map->RawText
-   {:style {:font "sans serif 10px"}
-    :text  ""}))
+   {:text  ""}))
 
 (deftemplate text
   "Single line of text. No wrapping or truncation."
-  {:style {:font "sans serif 10px"}
-   :text  ""}
+  {:text  ""}
   (-> raw-text
-      (assoc :text text :style style)
+      (assoc :text text)
       (reflect [1 0])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
