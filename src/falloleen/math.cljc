@@ -8,7 +8,6 @@
   "Ratio of circumference to diameter of a circle.
   For those who don't like programming with unicode."
   π)
-
 (def e
   #?(:clj Math/E
      :cljs js/Math.E))
@@ -78,6 +77,24 @@
 
 (defn det [a b c d]
   (- (* a d) (* b c)))
+
+(defn comp-atx
+  "Returns the composition of affine transformations"
+  ([] [1 0 0 1 0 0])
+  ([a] a)
+  ([[a b c d x y] [a' b' c' d' x' y']]
+   [(+ (* a a') (* b c'))
+    (+ (* a b') (* b d'))
+    (+ (* c a') (* d c'))
+    (+ (* c b') (* d d'))
+    (+ x (* a x') (* b y'))
+    (+ y (* c x') (* d y'))])
+  ([a b & more] (reduce comp-atx (comp-atx a b) more)))
+
+(defn apply-atx
+  "Applies affine tx to a point and returns the result."
+  [[a b c d e f] [x y]]
+  [(+ (* a x) (* b y) e) (+ (* c x) (* d y) f)])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Specific

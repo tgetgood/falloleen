@@ -12,6 +12,9 @@
 (defprotocol LinearTransformation
   (matrix [this] "Returns the matrix form of this 2d linear transform."))
 
+(defprotocol AffineTransformation
+  (atx [this]
+    "Return the 2d Affine Transformation matrix in the form [a b c d x y"))
 (defprotocol IFixedTranslation
   (offset [this]))
 
@@ -49,7 +52,7 @@
 (defprotocol CompilationCache
   "Shapes that can cache their compiled rendering instructions."
   (retrieve [this])
-  (store [this]))
+  (store [this v]))
 
 (defprotocol Host
   (base [this] "Returns underlying object.")
@@ -102,33 +105,61 @@
 ;;;;; Affine Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftype Transformed [base stack
-                      ^:volatile-mutable frame-cache
-                      ^:volatile-mutable compile-cache])
+(declare transformed?)
+
+(defn bounded? [shape]
+  (if (transformed? shape)
+    (bounded? (contents shape))
+    (satisfies? Bounded shape)))
+
+(deftype TransformedShape [base stack
+                           ^:volatile-mutable frame-cache
+                           ^:volatile-mutable compile-cache]
+  CompilationCache
+  (retrieve [_] compile-cache)
+  (store [_ v] (set! compile-cache v))
+
+  Bounded
+  (frame [this]
+    (if frame-cache
+      frame-cache
+      (when (bounded? base)
+        (let [bf    (frame base)
+              xform (atx this)
+              f     (mapv #(math/apply-atx xform %)  bf)]
+          (set! frame-cache f)
+          f))))
+
+  IContainer
+  (contents [_]
+    base)
+
+  AffineTransformation
+  (atx [_]
+    (transduce (map atx) math/comp-atx stack)))
 
 (defn transformed [base stack]
-  (Transformed. base stack nil nil))
+  (TransformedShape. base stack nil nil))
 
 (defn transformed? [shape]
-  (instance? Transformed shape))
+  (instance? TransformedShape shape))
 
 (defn stack-transform
   ([shape xform]
    (if (transformed? shape)
-     (transformed (.-base shape) (conj (.-stack shape) xform))
+     (transformed (contents shape) (conj (.-stack shape) xform))
      (transformed shape [xform])))
   ([shape xform & xforms]
    (let [base (stack-transform shape xform)]
      (transformed (.-base base) (into (.-stack base) xforms)))))
 
-(defn bounded? [shape]
-  (if (transformed? shape)
-    (bounded? (.-base shape))
-    (satisfies? Bounded shape)))
-
 ;;;;; Translation
 
 (defrecord FixedTranslation [x y]
+  AffineTransformation
+  (atx [_]
+    [1 0 0 1 x y])
+
   IFixedTranslation
   (offset [_]
     [x y]))
@@ -169,6 +200,11 @@
 ;;;;; Reflection
 
 (defrecord Reflection [x y]
+  AffineTransformation
+  (atx [this]
+    (let [[a b c d] (matrix this)]
+      [a b c d 0 0]))
+
   LinearTransformation
   (matrix [_]
     (let [m  (/ y x)
@@ -184,6 +220,11 @@
 ;;;;; Scaling
 
 (defrecord Scaling [x y]
+  AffineTransformation
+  (atx [this]
+    (let [[a b c d] (matrix this)]
+      [a b c d 0 0]))
+
   LinearTransformation
   (matrix [_]
     [x 0 0 y]))
@@ -197,6 +238,11 @@
 ;;;;; Rotation
 
 (defrecord Rotation [angle]
+  AffineTransformation
+  (atx [this]
+    (let [[a b c d] (matrix this)]
+      [a b c d 0 0]))
+
   LinearTransformation
   (matrix [_]
     (let [r (math/deg->rad angle)
@@ -209,10 +255,12 @@
 
 ;;;;; Arbitrary Affine Transformation
 
-(defrecord AffineTransform [a b c d x y])
+(defrecord AffineTransform [m]
+  AffineTransformation
+  (atx [_] m))
 
-(defn atx [{[a b c d] :matrix [x y] :translation}]
-  (AffineTransform. a b c d x y))
+(defn build-atx [{[a b c d] :matrix [x y] :translation}]
+  (AffineTransform. [a b c d x y]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Shapes
@@ -334,7 +382,7 @@
 ;; Note that since we're inverting coordinates systematically to get back to the
 ;; Cartesian plane, raw text renders upside down. This is easily fixed by the
 ;; `text` template in core.
-(defrecord RawText [style text])
+(defrecord RawText [text])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Shape Algebra

@@ -34,7 +34,7 @@
 
 (defn transform
   [shape xform]
-  (lang/stack-transform shape (lang/atx xform)))
+  (lang/stack-transform shape (lang/build-atx xform)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Templates
