@@ -109,9 +109,10 @@
 (declare transformed?)
 
 (defn bounded? [shape]
-  (if (transformed? shape)
-    (bounded? (contents shape))
-    (satisfies? Bounded shape)))
+  (cond
+    (satisfies? Bounded shape)    true
+    (satisfies? IContainer shape) (bounded? (contents shape))
+    (satisfies? ITemplate shape)  (bounded? (expand-template shape))))
 
 (deftype TransformedShape [base stack
                            ^:volatile-mutable frame-cache
