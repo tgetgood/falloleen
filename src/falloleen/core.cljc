@@ -82,14 +82,6 @@
            ~@(when docstr [docstr])
            (~(symbol (str "map->" template-name)) ~template))))))
 
-(defn ^boolean template? [shape]
-  (satisfies? lang/ITemplate shape))
-
-(defn template-expand-all [shape]
-  (if (template? shape)
-    (recur (lang/expand-template shape))
-    shape))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Built in Shapes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -146,7 +138,7 @@
                    (partition 2 (interleave points (rest points))))]
     (path segs))
 
-  lang/Bounded
+  lang/Framed
   (frame [{:keys [points]}]
     (let [[[x y] [x' y']] (math/bound-points points)
           dx (- x' x)
@@ -169,7 +161,7 @@
                                                     [(first verticies)]))))]
     (region edges))
 
-  lang/Bounded
+  lang/Framed
   (frame [{:keys [verticies]}]
     (let [[[x y] [x' y']] (math/bound-points verticies)
           dx (- x' x)
@@ -218,6 +210,52 @@
   (-> raw-text
       (assoc :text text)
       (reflect [1 0])))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; API import from falloleen.lang
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;;; Templates
+
+(defn template?
+  "Returns true iff shape is a template."
+  [shape]
+  (lang/template? shape))
+
+(defn expand-template
+  "Returns the expansion for a given shape template."
+  [template]
+  (lang/expand-template template))
+
+(defn template-expand-all
+  "Returns the fully expanded shape by running `expand-template` until the
+  result is no longer a template."
+  [shape]
+  (if (lang/template? shape)
+    (recur (lang/expand-template shape))
+    shape))
+
+;;;;; Frames
+
+(defn framed?
+  "Returns true iff shape has a defined frame."
+  [shape]
+  (lang/framed? shape))
+
+(defn frame
+  "Returns a frame for shape. A frame is three vectors which are the corner,
+  width, and height vectors of a rectangle which fully contains the shape,"
+  [shape]
+  (if (framed? shape)
+    (cond
+      (satisfies? lang/Framed shape) (lang/frame shape)
+      (template? shape)              (frame (lang/expand-template shape))
+      :else                          nil)))
+
+(defn closed?
+  "Returns true iff shape has no boundary."
+  [shape]
+  (lang/closed? shape))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; And Do Something

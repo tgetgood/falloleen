@@ -53,7 +53,7 @@
 
   #?(:cljs default :clj Object)
   (cmds [this]
-    (if (satisfies? lang/ITemplate this)
+    (if (lang/template? this)
       (cmds (lang/expand-template this))
       (println "Don't know how to render a "
                (type this) ". Doing nothing.")))
@@ -81,7 +81,7 @@
 
   Arc
   (cmds [{r :radius [x y] :centre :keys [from to clockwise?] :as this}]
-    (let [[x1 y1] (first (lang/endpoints this))]
+    (let [[x1 y1] (first (lang/boundary this))]
       [:begin-path
        [:move-to x1 y1]
        [:arc x y r from to (boolean clockwise?)]
@@ -102,7 +102,7 @@
 
   Spline
   (cmds [{:keys [segments]}]
-    (let [[x y] (first (lang/endpoints (first segments)))]
+    (let [[x y] (first (lang/boundary (first segments)))]
       (conj (transduce (comp (map cmds)
                              cat
                              (remove #(contains? #{:begin-path :end-curve} %))
@@ -115,7 +115,7 @@
 
   ClosedSpline
   (cmds [{:keys [segments]}]
-    (let [[x y] (first (lang/endpoints (first segments)))]
+    (let [[x y] (first (lang/boundary (first segments)))]
       (conj (transduce (comp (map cmds)
                              cat
                              (remove #(contains? #{:begin-path :end-curve} %))

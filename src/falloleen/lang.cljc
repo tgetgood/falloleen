@@ -31,21 +31,15 @@
   "Macros for shapes."
   (expand-template [this]))
 
-(defprotocol Curve
-  "1 dimensional visual object."
-  (endpoints [this])
-  (boundary? [this]
-    "Returns true iff this curve is the boundary of a shape. Note that this
-    implies that this curve must be connected and closed.")
-  (interior [this]
-    "Returns the shape corresponding to the interior of this curve, if it
-    exists."))
-
-(defprotocol Figure
-  "2 dimensional visual object."
+(defprotocol Compact
+  "Shapes which are finite in extent and contain their boundary (if they have
+  one). Compact manifolds are the basic building blocks of our system.
+  I haven't found a useful reason to be able to refer to the interior of a
+  compact manifold, so I haven't added it."
+  (dimension [this])
   (boundary [this]))
 
-(defprotocol Bounded
+(defprotocol Framed
   "Shapes that are bounded in space."
   (frame [this]
     "Returns a triple of vectors representing an offset (origin) and a basis."))
@@ -61,6 +55,29 @@
   (height [this] "Returns current height of the window".)
   (render [this shape] "Render shape to this host."))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; type checkers
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn ^boolean framed? [shape]
+  (cond
+    (satisfies? Framed shape)     true
+    (satisfies? IContainer shape) (framed? (contents shape))
+    (template? shape)             (framed? (expand-template shape))
+    :else                         false))
+
+(defn ^boolean template? [shape]
+  (satisfies? ITemplate shape))
+
+(defn closed?
+  "Returns true iff shape has no boundary."
+  [shape]
+  (or (not (satisfies? Compact shape)) (empty? (boundary shape))))
+
+(defn interior [shape]
+  ;; TODO: Just subtract the boundary from the whole thing.
+  ;; REVIEW: I haven't found a use for this yet, so maybe should just delete it.
+  )
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Relative logic
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -106,14 +123,6 @@
 ;;;;; Affine Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declare transformed?)
-
-(defn bounded? [shape]
-  (cond
-    (satisfies? Bounded shape)    true
-    (satisfies? IContainer shape) (bounded? (contents shape))
-    (satisfies? ITemplate shape)  (bounded? (expand-template shape))))
-
 (deftype TransformedShape [base stack
                            ^:volatile-mutable frame-cache
                            ^:volatile-mutable compile-cache]
@@ -121,14 +130,14 @@
   (retrieve [_] compile-cache)
   (store [_ v] (set! compile-cache v))
 
-  Bounded
+  Framed
   (frame [this]
     (if frame-cache
       frame-cache
-      (when (bounded? base)
+      (when (framed? base)
         (let [bf    (frame base)
               xform (atx this)
-              f     (mapv #(math/apply-atx xform %)  bf)]
+              f     (mapv #(math/apply-atx xform %) bf)]
           (set! frame-cache f)
           f))))
 
@@ -269,21 +278,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defrecord Line [from to]
-  Bounded
+  Framed
   (frame [_]
     (let [[dx dy] (v- to from)]
       [from [dx 0] [0 dy]]))
 
-  Curve
-  (endpoints [_] [from to])
-  (boundary? [_] false)
-  (interior [_] nil))
+  Compact
+  (dimension [_] 1)
+  (boundary [_] [from to]))
 
 (defrecord Bezier [from to c1 c2]
-  Curve
-  (endpoints [_] [from to])
-  (boundary? [_] false)
-  (interior [_] nil))
+  ;; TODO: Framed. Not that hard.
+
+  Compact
+  (dimension [_] 1)
+  (boundary [_] [from to]))
 
 ;; REVIEW: This is awkward. A circle in geometry is a unit. When you think about
 ;; circles, you don't want to think about whether they go clockwise or anti-,
@@ -307,56 +316,55 @@
 ;; don't see a solution, I'd rather wait one out than wind up in that mess
 ;; again.
 
-(defrecord Circle [centre radius]
-  Bounded
-  (frame [_]
-    (let [[x y] centre]
-      [[(- x radius) (- y radius)]
-       [(* 2 radius) 0]
-       [0 (* 2 radius)]]))
-
-  Figure
-  (boundary [this] this)
-
-  Curve
-  (endpoints [_] nil)
-  (boundary? [_] true)
-  (interior [this] this))
-
 (defrecord Arc [centre radius from to clockwise?]
-  Curve
-  (endpoints [_]
+  ;; TODO: Framed
+  Compact
+  (dimension [_] 1)
+  (boundary [_]
     (when ((< (math/abs (- from to)) (* 2 math/pi)))
       (->> [from to]
            (map (juxt math/cos math/sin))
            (map #(v* radius %))
-           (mapv #(v+ % centre)))))
-  (boundary? [_]
-    (<= (* 2 math/pi) (math/abs (- from to))))
-  (interior [this]
-    (when (boundary? this)
-      (Circle. centre radius))))
+           (mapv #(v+ % centre))))))
 
-(declare closed-spline)
+(defrecord Circle [centre radius]
+  Compact
+  (dimension [_] 2)
+  (boundary [_] (Arc. centre radius 0 (* 2 math/pi) false))
+
+  Framed
+  (frame [_]
+    (let [[x y] centre]
+      [[(- x radius) (- y radius)]
+       [(* 2 radius) 0]
+       [0 (* 2 radius)]])))
 
 (defrecord Spline [segments]
-  Curve
-  (endpoints [_]
-    [(first (endpoints (first segments))) (last (endpoints (last segments)))])
-  (boundary? [this]
-    (apply = (endpoints this)))
-  (interior [this]
-    (when (boundary? this)
-      (closed-spline segments))))
+  Framed
+  (frame [_]
+    (when (every? framed? segments)))
+  Compact
+  (dimension [_] 1)
+  (boundary [_]
+    (let [a (first (boundary (first segments)))
+          b (last (boundary (last segments)))]
+      (when-not (= a b)
+        [a b])))
+  ;; REVIEW: Here's where it gets interesting. Some shapes are the boundaries of
+  ;; higher dimension shapes. This is one, the arc is another. This isn't a
+  ;; property of the kind of shape though, it's a topological peculiarity of the
+  ;; particular shape itself.
+  ;;
+  ;; Topologically if a shape has no boundary, then it is the boundary of a
+  ;; shape of one higher dimension. So that plays to the same protocol, because
+  ;; each kind of shape has a higher dimensional analog. Maybe that table should
+  ;; live somewhere else? I don't know yet.
+  )
 
 (defrecord ClosedSpline [segments]
-  Curve
-  (endpoints [_] nil)
-  (boundary? [_] true)
-  (interior [this] this)
-
-  Figure
-  (boundary [this] this))
+  Compact
+  (dimension [_] 2)
+  (boundary [_] (Spline. segments)))
 
 (defn spline [segs]
   ;; FIXME: Here's where we enforce connected segments.
