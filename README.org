@@ -26,25 +26,14 @@ High level language for graphics programming.
 	instructions that use that state (implicitly). Let's call this the Van Gogh
 	bottleneck.
 
-	The Van Gogh bottlenect prevents us from having real functions in the name of
-	performance. Round trips are expensive so having local closures would be
-	prohibitive. This leaves us programming proceedurally.
+	This isn't an attempt to solve the performance issues with the Van Gogh
+	bottleneck. I'll eventually move this to opengl and try to address that but
+	for now I'm compiling to HTML canvas 2D in the browser and Processing on the JVM.
 
-	When it comes to performance this is even worse. The "solution" to the Von
-	Neumann bottleneck is cpu caching (and pipelining, and out of order execution,
-	&c.), but when you're dealing with the GPU there is no local cache. GPU
-	latency is ~10,000,000X higher than L1 cache. So the stateful model prevents
-	efficient use of the graphics hardware.
+	The principle goal of this library is to lift graphics programming from the
+	proceedural paradigm to functional declarative.
 
-	Basically it's a disgrace and I'm sick of it. This whole experiment (and its
-	predecessor Lemonade, and its predecessors) should be viewed as an extended
-	tirade against the status quo.
-
-	"But I work in games and that's not how we do things". Of course not, you'd
-	never ship a game this way. But game programming is by and large arcane and
-	completely unapproachable to someone who just wants to draw a damn picture.
-
-	Hopefully I can help.
+	Yes it's slow. Not as slow as you might think though.
 * Guide
 	Still to come.
 * License
