@@ -23,16 +23,6 @@
       `(extend-protocol ~prot
          ~@(mapcat (fn [a b] `[~a ~@b]) types (repeat methods))))))
 
-(def noop
-  "What a render-fn returns if it wants to do nothing."
-  (constantly nil))
-
-(defn render-catchall [shape]
-  (if (nil? shape)
-    (println "I don't know how to render nil.")
-    (println (str "I don't know how to render a " (type shape))))
-  noop)
-
 (defn magnitude [a b c d]
   ;; HACK: This works for symmetric linear transforms, but as soon as we start
   ;; talking about skews and asymmetric scalings, it breaks down. I don't see

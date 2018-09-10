@@ -235,8 +235,11 @@
 #?(:cljs (enable-console-print!))
 
 (def test-image
-  [(scale  (assoc line :to [400 400]) 10)
+  [(-> (scale  (assoc line :to [400 400]) 10) )
+   (with-style {:opacity 0.7 :stroke :none :fill :pink}
+     (assoc rectangle :width 300 :height 700))
    (translate (assoc text :text "Hi there") [100 200])])
+
 
 (defonce host (hosts/default-host {:size :fullscreen}))
 
