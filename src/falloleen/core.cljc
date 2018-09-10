@@ -115,6 +115,13 @@
    {:centre [0 0]
     :radius 1}))
 
+(def rectangle
+  "Need I say more?"
+  (map->Rectangle
+   {:origin [0 0]
+    :width 1
+    :height 1}))
+
 (defn path
   "Takes a sequence of curve segments, each beginning where the previous
   ended. Returns a path consisting of those segments glued together."
@@ -167,15 +174,6 @@
           dx (- x' x)
           dy (- y' y)]
       [[x y] [dx 0] [0 dy]])))
-
-(deftemplate rectangle
-  {:corner [0 0]
-   :height 1
-   :width  1}
-  (let [[x1 y1] corner
-        x2      (+ x1 width)
-        y2      (+ y1 height)]
-    (assoc polygon :verticies [[x1 y1] [x2 y1] [x2 y2] [x1 y2]])))
 
 (deftemplate annulus
   {:inner-radius 1 :outer-radius 2 :centre [0 0]}
@@ -240,7 +238,12 @@
 (defn framed?
   "Returns true iff shape has a defined frame."
   [shape]
-  (lang/framed? shape))
+  ;; REVIEW: This is awkward because some shapes implement Framed, but aren't
+  ;; always guaranteed to have a frame. Take the case of a spline which
+  ;; generally has a frame, but it's possible that one of the segments is
+  ;; something novel and a frame can't be computed. So having a frame and being
+  ;; able to compute the frame aren't the same thing.
+  (and (lang/framed? shape) (lang/frame shape)))
 
 (defn frame
   "Returns a frame for shape. A frame is three vectors which are the corner,

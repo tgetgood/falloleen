@@ -277,11 +277,13 @@
 ;;;;; Shapes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(declare rectangle)
+
 (defrecord Line [from to]
   Framed
   (frame [_]
     (let [[dx dy] (v- to from)]
-      [from [dx 0] [0 dy]]))
+      (assoc rectangle :origin from :width dx :height dy)))
 
   Compact
   (dimension [_] 1)
@@ -343,6 +345,7 @@
   Framed
   (frame [_]
     (when (every? framed? segments)))
+
   Compact
   (dimension [_] 1)
   (boundary [_]
@@ -362,6 +365,10 @@
   )
 
 (defrecord ClosedSpline [segments]
+  Framed
+  (frame [_]
+    (when (every? framed? segments)))
+
   Compact
   (dimension [_] 2)
   (boundary [_] (Spline. segments)))
@@ -373,6 +380,28 @@
 (defn closed-spline [segs]
   ;; FIXME: Enforce closed connected path
   (ClosedSpline. segs))
+
+(defrecord Rectangle [origin width height]
+  Framed
+  (frame [this]
+    this)
+
+  ITemplate
+  (expand-template [_]
+    (let [[x1 y1] origin
+          x2      (+ x1 width)
+          y2      (+ y1 height)
+          verticies [[x1 y1] [x2 y1] [x2 y2] [x1 y2]]]
+    (closed-spline
+     (map #(Line. %1 %2)
+          verticies
+          (concat (rest verticies) [(first verticies)]))))))
+
+(def rectangle
+  (map->Rectangle
+   {:origin [0 0]
+    :width 1
+    :height 1}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Composites
