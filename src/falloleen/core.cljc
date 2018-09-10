@@ -220,7 +220,7 @@
       (reflect [1 0])))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; browser testing temp code
+;;;; And Do Something
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn draw!
@@ -231,20 +231,3 @@
                (-> shape
                    (reflect [1 0])
                    (translate [0 (lang/height host)]))))
-
-#?(:cljs (enable-console-print!))
-
-(def test-image
-  [(-> (scale  (assoc line :to [400 400]) 10) )
-   (with-style {:opacity 0.7 :stroke :none :fill :pink}
-     (assoc rectangle :width 300 :height 700))
-   (translate (assoc text :text "Hi there") [100 200])])
-
-
-(defonce host (hosts/default-host {:size :fullscreen}))
-
-(defn ^:export init []
-  (draw! test-image host))
-
-(defn on-js-reload []
-  (init))
