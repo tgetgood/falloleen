@@ -246,6 +246,12 @@
   [shape]
   (lang/closed? shape))
 
+(defn boundary
+  "Returns the boundary of a shape, or nil if it hasn't got one."
+  [shape]
+  (when (satisfies? lang/Shape shape)
+    (lang/boundary shape)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; And Do Something
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
