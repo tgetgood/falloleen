@@ -143,14 +143,7 @@
                            :from x
                            :to   y))
                    (partition 2 (interleave points (rest points))))]
-    (path segs))
-
-  lang/Framed
-  (frame [{:keys [points]}]
-    (let [[[x y] [x' y']] (math/bound-points points)
-          dx (- x' x)
-          dy (- y' y)]
-      [[x y] [dx 0] [0 dy]])))
+    (path segs)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Shapes
@@ -166,14 +159,7 @@
                    (partition 2 (interleave verticies
                                             (concat (rest verticies)
                                                     [(first verticies)]))))]
-    (region edges))
-
-  lang/Framed
-  (frame [{:keys [verticies]}]
-    (let [[[x y] [x' y']] (math/bound-points verticies)
-          dx (- x' x)
-          dy (- y' y)]
-      [[x y] [dx 0] [0 dy]])))
+    (region edges)))
 
 (deftemplate annulus
   {:inner-radius 1 :outer-radius 2 :centre [0 0]}

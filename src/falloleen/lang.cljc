@@ -42,7 +42,9 @@
 (defprotocol Framed
   "Shapes that are bounded in space."
   (frame [this]
-    "Returns a triple of vectors representing an offset (origin) and a basis."))
+    "Returns a rectangle which fully encloses this shape. The rectangle does not
+    have to be minimal, but the closer you can get, the better the results will
+    generally be."))
 
 (defprotocol CompilationCache
   "Shapes that can cache their compiled rendering instructions."
@@ -79,8 +81,10 @@
   ;; REVIEW: I haven't found a use for this yet, so maybe should just delete it.
   )
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;; Relative logic
+;;;;; Frames and Relative locations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare rectangle)
 
 (defmulti point-of-box
   "Locate the named point inside the given bounding box. The point can be a
@@ -118,6 +122,24 @@
                   (= 2 (count v))
                   (every? number? v)
                   (every? #(<= 0 % 1) v))))))
+
+(defn frame-points
+  "Given a seq of points, return the smallest rectangle (aligned with the axes)
+  that contains all of them."
+  [ps]
+  (let [[[x1 y1] [x2 y2]] (math/bound-points ps)]
+    (assoc rectangle :origin [x1 y1] :width (- x2 x1) :height (- y2 y1))))
+
+(defn verticies [{[x y] :origin w :width h :height}]
+  (let [x2 (+ x w)
+        y2 (+ y h)]
+    [[x y] [x2 y] [x2 y2] [x y2]]))
+
+(defn frame-rects
+  "Given a sequence of rectangles, returns the smalled single rectangle that
+  contains all of them."
+  [rects]
+  (frame-points (mapcat verticies rects)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Affine Transformations
@@ -277,8 +299,6 @@
 ;;;;; Shapes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declare rectangle)
-
 (defrecord Line [from to]
   Framed
   (frame [_]
@@ -290,7 +310,10 @@
   (boundary [_] [from to]))
 
 (defrecord Bezier [from to c1 c2]
-  ;; TODO: Framed. Not that hard.
+  Framed
+  (frame [_]
+    ;; REVIEW: This is correct, but there's probably a tighter bound to be had.
+    (frame-points [from to c1 c2]))
 
   Compact
   (dimension [_] 1)
@@ -319,7 +342,15 @@
 ;; again.
 
 (defrecord Arc [centre radius from to clockwise?]
-  ;; TODO: Framed
+  Framed
+  (frame [_]
+    ;; TODO: Refine. We can do a lot better than this in general.
+    (let [[x y] centre]
+      (assoc rectangle
+             :origin [(- x radius) (- y radius)]
+             :width  (* 2 radius)
+             :height (* 2 radius))))
+
   Compact
   (dimension [_] 1)
   (boundary [_]
@@ -337,14 +368,16 @@
   Framed
   (frame [_]
     (let [[x y] centre]
-      [[(- x radius) (- y radius)]
-       [(* 2 radius) 0]
-       [0 (* 2 radius)]])))
+      (assoc rectangle
+             :origin [(- x radius) (- y radius)]
+             :width  (* 2 radius)
+             :height (* 2 radius)))))
 
 (defrecord Spline [segments]
   Framed
   (frame [_]
-    (when (every? framed? segments)))
+    (when (every? framed? segments)
+      (frame-rects (map frame segments))))
 
   Compact
   (dimension [_] 1)
@@ -367,7 +400,8 @@
 (defrecord ClosedSpline [segments]
   Framed
   (frame [_]
-    (when (every? framed? segments)))
+    (when (every? framed? segments)
+      (frame-rects (map frame segments))))
 
   Compact
   (dimension [_] 2)
