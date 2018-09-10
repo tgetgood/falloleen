@@ -1,10 +1,54 @@
 #+TITLE: Falloleen
 
-High level language for producing vector graphics and UIs.
+High level language for graphics programming.
 
 * Overview
+	Falloleen is the second iteration in my search for a way of programming
+	visuals (including UIs) that fits into the data centric Clojure programming
+	model.
+
+	Processing, Canvas, and most other things I've tried depend on what Brett
+	Victor called the Painter's algorithm: first you textually push all the menu
+	buttons from your favourite paint gui, then you textually push around a pen,
+	sometimes it leaves a trail on the page, sometimes not, that depends on if you
+	textually moved it down to the paper or left it up in the air.
+
+	When I write it like that it kind of sounds like playing Zork. It isn't nearly
+	that fun.
+
+	This model of drawing works well in a gui when you're 10 years old. I loved it
+	too once upon a time. Unfortunately this makes high level programming
+	impossible. And I'm talking high level programming circa 1980; something on
+	par with C would be a huge step up.
+
+	The real problem is that the Painter's Canvas is a global mutable object. In
+	order to do anything you have to load state into this object and then execute
+	instructions that use that state (implicitly). Let's call this the Van Gogh
+	bottleneck.
+
+	The Van Gogh bottlenect prevents us from having real functions in the name of
+	performance. Round trips are expensive so having local closures would be
+	prohibitive. This leaves us programming proceedurally.
+
+	When it comes to performance this is even worse. The "solution" to the Von
+	Neumann bottleneck is cpu caching (and pipelining, and out of order execution,
+	&c.), but when you're dealing with the GPU there is no local cache. GPU
+	latency is ~10,000,000X higher than L1 cache. So the stateful model prevents
+	efficient use of the graphics hardware.
+
+	Basically it's a disgrace and I'm sick of it. This whole experiment (and its
+	predecessor Lemonade, and its predecessors) should be viewed as an extended
+	tirade against the status quo.
+
+	"But I work in games and that's not how we do things". Of course not, you'd
+	never ship a game this way. But game programming is by and large arcane and
+	completely unapproachable to someone who just wants to draw a damn picture.
+
+	Hopefully I can help.
+* Guide
+	Still to come.
 * License
+	Copyright © 2018 Thomas Getgood
 
-Copyright © 2018 Thomas Getgood
-
-Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.
+	Distributed under the Eclipse Public License either version 1.0 or (at your
+	option) any later version.
