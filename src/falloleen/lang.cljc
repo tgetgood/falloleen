@@ -143,16 +143,15 @@
 ;;;;; Affine Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn atx* [o frame]
-  (cond
-    (satisfies? AffineTransformation o) (atx o)
-    (satisfies? IRelativeTranslation o) (atx (coords o frame))
-
-    ;; FIXME: What's this error?
-    :else                               nil))
+(defn frame-transform-step [{:keys [frame xform] :as state} o]
+  (let [sx (if (satisfies? AffineTransformation o)
+             (atx o)
+             (atx (coords o frame)))]
+    {:frame (apply-transform frame sx)
+     :xform (math/comp-atx xform sx)}))
 
 (deftype TransformedShape [base stack
-                           ^:volatile-mutable frame-cache
+                           ^:volatile-mutable state-cache
                            ^:volatile-mutable compile-cache]
   CompilationCache
   (retrieve [_] compile-cache)
@@ -160,14 +159,14 @@
 
   Framed
   (frame [this]
-    (if frame-cache
-      frame-cache
+    (if-let [f (:frame state-cache)]
+      f
       (when (framed? base)
-        (let [bf    (frame base)
-              xform (atx this)
-              f     (mapv #(math/apply-atx xform %) bf)]
-          (set! frame-cache f)
-          f))))
+        (let [state (reduce frame-transform-step
+                            {:frame (frame base) :xform [1 0 0 1 0 0]}
+                            stack)]
+          (set! state-cache state)
+          (:frame state-cache)))))
 
   IContainer
   (contents [_]
@@ -175,7 +174,19 @@
 
   AffineTransformation
   (atx [_]
-    (transduce (map atx*) math/comp-atx (reverse stack))))
+    (if-let [x (:xform state-cache)]
+      x
+      (if (framed? base)
+        (let [state (reduce frame-transform-step
+                            {:frame (frame base) :xform [1 0 0 1 0 0]}
+                            stack)]
+          (set! state-cache state)
+          (:xform state-cache))
+        ;; REVIEW: If base is not framed, no xforms can be relative. The error
+        ;; produced here will, however, be useless.
+        (let [state (transduce (map atx) math/comp-atx (reverse stack))]
+          (set! state-cache {:xform state})
+          state)))))
 
 (defn transformed [base stack]
   (TransformedShape. base stack nil nil))
@@ -308,6 +319,10 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defrecord Line [from to]
+  Transformable
+  (apply-transform [_ xform]
+    (Line. (math/apply-atx xform from) (math/apply-atx xform to)))
+
   Framed
   (frame [_]
     (let [[dx dy] (v- to from)]
@@ -318,6 +333,11 @@
   (boundary [_] [from to]))
 
 (defrecord Bezier [from to c1 c2]
+  Transformable
+  (apply-transform [_ xform]
+    (let [[f' t' c1' c2'] (map #(math/apply-atx xform %) [from to c1 c2])]
+      (Bezier. f' t' c1' c2')))
+
   Framed
   (frame [_]
     ;; REVIEW: This is correct, but there's probably a tighter bound to be had.
@@ -369,6 +389,13 @@
            (mapv #(v+ % centre))))))
 
 (defrecord Circle [centre radius]
+  Transformable
+  (apply-transform [_ xform]
+    (let [c' (math/apply-atx xform centre)
+          r* (math/apply-atx xform (mapv + centre [radius 0]))
+          r' (math/dist c' r*)]
+      (Circle. c' r')))
+
   Compact
   (dimension [_] 2)
   (boundary [_] (Arc. centre radius 0 (* 2 math/pi) false))
@@ -382,6 +409,10 @@
              :height (* 2 radius)))))
 
 (defrecord Spline [segments]
+  Transformable
+  (apply-transform [_ xform]
+    (Spline. (map apply-transform segments)))
+
   Framed
   (frame [_]
     (when (every? framed? segments)
@@ -406,6 +437,10 @@
   )
 
 (defrecord ClosedSpline [segments]
+  Transformable
+  (apply-transform [_ xform]
+    (ClosedSpline. (map apply-transform segments)))
+
   Framed
   (frame [_]
     (when (every? framed? segments)
@@ -424,6 +459,19 @@
   (ClosedSpline. segs))
 
 (defrecord Rectangle [origin width height]
+  Transformable
+  (apply-transform [_ xform]
+    (let [o' (math/apply-atx xform origin)
+          w' (math/apply-atx xform [width 0])
+          h' (math/apply-atx xform [0 height])]
+      (if (and (zero? (nth w' 1)) (zero? (nth h' 0)))
+        (Rectangle. o' (nth w' 0) (nth h' 1))
+        (let [verticies [o' (mapv + o' w') (mapv + o' w' h') (mapv + o' h')]]
+          (ClosedSpline.
+           (map #(Line. %1 %2)
+                verticies
+                (concat (rest verticies) [(first verticies)])))))))
+
   Framed
   (frame [this]
     this)
