@@ -21,7 +21,7 @@
 
 (defprotocol IRelativeTranslation
   "Translations relative to a shape: :centre, :bottom-left, etc.."
-  (realise [this frame]))
+  (coords [this frame]))
 
 (defprotocol IContainer
   "Uniform access to contents of shape containers."
@@ -86,42 +86,40 @@
 
 (declare rectangle)
 
-(defmulti point-of-box
-  "Locate the named point inside the given bounding box. The point can be a
-  keyword such as :centre, :top, :bottom-left, etc.. or a vector of the form
-  [:relative [s t]] where 0 <= s, t <= 1 which gives a point relative to the
-  edges of the box. If the box is [[0 0] [1 0] [0 1]] then [:relative [s t]]
-  whould be the point [s t]."
-  (fn [k b] k))
+(defn v2d? [v]
+  (and (vector? v)
+       (= 2 (count v))
+       (every? number? v)))
 
-(defmethod point-of-box :centre
-  [_ [a b c]]
-  (v+ a (v* 0.5 (v+ b c))))
+(def position-map
+  {:centre       [0.5 0.5]
+   :bottom-left  [0 0]
+   :bottom-right [1 0]
+   :top-right    [1 1]
+   :top-left     [0 1]
+   :top          [0.5 1]
+   :left         [0 0.5]
+   :right        [1 0.5]
+   :bottom       [0.5 0]})
 
-(defmethod point-of-box :bottom-left
-  [_ [a b c]]
-  a)
+(defn relative-coords [[s t] {[x y] :origin w :width h :height}]
+  [(+ x (* s w)) (+ y (* t h))])
 
-(defmethod point-of-box :top-right
-  [_ [a b c]]
-  (v+ a b c))
+(defn valid-relative? [v]
+  ;; TODO: just use spec.
+  (and (sequential? v)
+       (= 2 (count v))
+       (= :relative (first v))
+       (v2d? (second v))
+       (every? #(<= 0 % 1) (second v))))
 
-(defmethod point-of-box :default
-  [k [a b c]]
-  (when (and (vector? k) (= :relative (first k)))
-    (let [[s t] (second k)]
-      (v+ a (v* s b) (v* s c)))))
-
-(defn relative?
+(defn relative-vector
   "Returns true iff k is a valid relative position."
   [k]
-  (or (contains? (methods point-of-box) k)
-      (and (vector? k) (= :relative (first k))
-           (let [v (second k)]
-             (and (vector? v)
-                  (= 2 (count v))
-                  (every? number? v)
-                  (every? #(<= 0 % 1) v))))))
+  (if (contains? position-map k)
+    [:relative (get position-map k)]
+    (when (valid-relative? k)
+      k)))
 
 (defn frame-points
   "Given a seq of points, return the smallest rectangle (aligned with the axes)
@@ -144,6 +142,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Affine Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn atx* [o frame]
+  (cond
+    (satisfies? AffineTransformation o) (atx o)
+    (satisfies? IRelativeTranslation o) (atx (coords o frame))
+
+    ;; FIXME: What's this error?
+    :else                               nil))
 
 (deftype TransformedShape [base stack
                            ^:volatile-mutable frame-cache
@@ -169,7 +175,7 @@
 
   AffineTransformation
   (atx [_]
-    (transduce (map atx) math/comp-atx (reverse stack))))
+    (transduce (map atx*) math/comp-atx (reverse stack))))
 
 (defn transformed [base stack]
   (TransformedShape. base stack nil nil))
@@ -199,21 +205,23 @@
 
 (defrecord RelativeTranslation [k reverse?]
   IRelativeTranslation
-  (realise [_ box]
-    (let [[x y] (point-of-box k box)]
+  (coords [_ box]
+    (let [[x y] (relative-coords k box)]
       (if reverse?
-        [(- x) (- y)]
-        [x y]))))
+        (FixedTranslation. (- x) (- y))
+        (FixedTranslation. x y)))))
+
+(defn error [& args]
+  (throw (new #?(:clj Exception :cljs js/Error) args)))
 
 (defn translation [v]
-  (if (relative? v)
-    (RelativeTranslation. v false)
-    (let [[x y] v]
-      (FixedTranslation. x y))))
+  (if-let [v' (relative-vector v)]
+    (RelativeTranslation. v' false)
+    (FixedTranslation. (nth v 0) (nth v 1))))
 
 (defn- reverse-translation [v]
-  (if (relative? v)
-    (RelativeTranslation. v true)
+  (if-let [v' (relative-vector v)]
+    (RelativeTranslation. v' true)
     (let [[x y] v]
       (FixedTranslation. (- x) (- y)))))
 
