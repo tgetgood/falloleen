@@ -61,15 +61,15 @@
 ;;;;; type checkers
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn ^boolean framed? [shape]
+(defn template? [shape]
+  (satisfies? ITemplate shape))
+
+(defn framed? [shape]
   (cond
     (satisfies? Framed shape)     true
     (satisfies? IContainer shape) (framed? (contents shape))
     (template? shape)             (framed? (expand-template shape))
     :else                         false))
-
-(defn ^boolean template? [shape]
-  (satisfies? ITemplate shape))
 
 (defn closed?
   "Returns true iff shape has no boundary."

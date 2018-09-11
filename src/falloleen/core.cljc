@@ -117,7 +117,7 @@
 
 (def rectangle
   "Need I say more?"
-  (map->Rectangle
+  (lang/map->Rectangle
    {:origin [0 0]
     :width 1
     :height 1}))
@@ -249,7 +249,7 @@
 (defn boundary
   "Returns the boundary of a shape, or nil if it hasn't got one."
   [shape]
-  (when (satisfies? lang/Shape shape)
+  (when (satisfies? lang/Compact shape)
     (lang/boundary shape)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -22,7 +22,7 @@
                        Style
                        TransformedShape])]
             [falloleen.math :as math]
-            [falloleen.renderer.util :as util]
+            [falloleen.renderer.util :as util :include-macros true]
             [net.cgrand.macrovich :as macros :include-macros true]))
 
 (defn convert-styles [{:keys [stroke fill opacity font]}]
