@@ -266,4 +266,4 @@
   (lang/render host
                (-> shape
                    (reflect [1 0])
-                   (translate [0 (lang/height host)]))))
+                   (translate [0 (- (lang/height host))]))))
