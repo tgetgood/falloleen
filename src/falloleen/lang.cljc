@@ -499,7 +499,11 @@
 ;;;;; Composites
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defrecord Style [style base])
+(defrecord Style [style base]
+  Framed
+  (frame [_]
+    (when (framed? base)
+      (frame base))))
 
 (defn style [style base]
   (Style. style base))
