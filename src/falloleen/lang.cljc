@@ -19,9 +19,9 @@
 (defprotocol IFixedTranslation
   (offset [this]))
 
-(defprotocol IRelativeTranslation
+(defprotocol IRelative
   "Translations relative to a shape: :centre, :bottom-left, etc.."
-  (coords [this frame]))
+  (fix-coords [this frame]))
 
 (defprotocol IContainer
   "Uniform access to contents of shape containers."
@@ -146,7 +146,8 @@
 (defn frame-transform-step [{:keys [frame xform] :as state} o]
   (let [sx (if (satisfies? AffineTransformation o)
              (atx o)
-             (atx (coords o frame)))]
+             (atx (fix-coords o frame)))]
+    (println sx frame (apply-transform frame sx))
     {:frame (apply-transform frame sx)
      :xform (math/comp-atx xform sx)}))
 
@@ -214,27 +215,32 @@
   (offset [_]
     [x y]))
 
-(defrecord RelativeTranslation [k reverse?]
-  IRelativeTranslation
-  (coords [_ box]
-    (let [[x y] (relative-coords k box)]
-      (if reverse?
-        (FixedTranslation. (- x) (- y))
-        (FixedTranslation. x y)))))
+(defn reverse-translation [{:keys [x y]}]
+  (FixedTranslation. (- x) (- y)))
 
-(defn error [& args]
-  (throw (new #?(:clj Exception :cljs js/Error) args)))
+(defrecord RelativeTranslation [k]
+  IRelative
+  (fix-coords [_ box]
+    (let [[x y] (relative-coords k box)]
+      (FixedTranslation. x y))))
 
 (defn translation [v]
   (if-let [v' (relative-vector v)]
-    (RelativeTranslation. v' false)
+    (RelativeTranslation. v')
     (FixedTranslation. (nth v 0) (nth v 1))))
 
-(defn- reverse-translation [v]
-  (if-let [v' (relative-vector v)]
-    (RelativeTranslation. v' true)
-    (let [[x y] v]
-      (FixedTranslation. (- x) (- y)))))
+(defrecord RecentredLinearTransform [translation linear]
+  AffineTransformation
+  (atx [_]
+    (let [tx (atx translation)
+          rtx (atx (reverse-translation translation))]
+      (math/comp-atx tx (atx linear) rtx))))
+
+(defrecord RelativeRecentredLinearTransform [reltrans linear]
+  IRelative
+  (fix-coords [_ frame]
+    (let [trans (fix-coords reltrans frame)]
+      (RecentredLinearTransform. trans linear))))
 
 (defn transform-with-centre
   "Returns a transformed shape which applies linear transform xform around
@@ -244,10 +250,10 @@
   [shape centre xform]
   (if (= centre [0 0])
     (stack-transform shape xform)
-    (stack-transform shape
-                     (translation centre)
-                     xform
-                     (reverse-translation centre))))
+    (let [t (translation centre)]
+      (if (relative-vector centre)
+        (stack-transform shape (RelativeRecentredLinearTransform. t xform))
+        (stack-transform shape (RecentredLinearTransform. t xform))))))
 
 ;;;;; Reflection
 
@@ -411,7 +417,7 @@
 (defrecord Spline [segments]
   Transformable
   (apply-transform [_ xform]
-    (Spline. (map apply-transform segments)))
+    (Spline. (map #(apply-transform % xform) segments)))
 
   Framed
   (frame [_]
@@ -439,7 +445,8 @@
 (defrecord ClosedSpline [segments]
   Transformable
   (apply-transform [_ xform]
-    (ClosedSpline. (map apply-transform segments)))
+    (ClosedSpline.
+     (map #(apply-transform % xform) segments)))
 
   Framed
   (frame [_]
@@ -461,16 +468,11 @@
 (defrecord Rectangle [origin width height]
   Transformable
   (apply-transform [_ xform]
-    (let [o' (math/apply-atx xform origin)
-          w' (math/apply-atx xform [width 0])
-          h' (math/apply-atx xform [0 height])]
-      (if (and (zero? (nth w' 1)) (zero? (nth h' 0)))
-        (Rectangle. o' (nth w' 0) (nth h' 1))
-        (let [verticies [o' (mapv + o' w') (mapv + o' w' h') (mapv + o' h')]]
-          (ClosedSpline.
-           (map #(Line. %1 %2)
-                verticies
-                (concat (rest verticies) [(first verticies)])))))))
+    (let [[x y] origin
+          o' (math/apply-atx xform origin)
+          w' (math/apply-atx xform [(+ x  width) y])
+          h' (math/apply-atx xform [x (+ y height)])]
+      (frame-points [o' w' h'])))
 
   Framed
   (frame [this]

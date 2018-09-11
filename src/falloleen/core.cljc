@@ -252,6 +252,9 @@
   (when (satisfies? lang/Compact shape)
     (lang/boundary shape)))
 
+(defn reduce-transformed [shape]
+  (lang/apply-transform (.-base shape) (lang/atx shape)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; And Do Something
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
