@@ -143,12 +143,11 @@
 ;;;;; Affine Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn frame-transform-step [{:keys [frame xform] :as state} o]
+(defn frame-transform-step [{:keys [xform shape]} o]
   (let [sx (if (satisfies? AffineTransformation o)
              (atx o)
-             (atx (fix-coords o frame)))]
-    (println sx frame (apply-transform frame sx))
-    {:frame (apply-transform frame sx)
+             (atx (fix-coords o (frame shape))))]
+    {:shape (apply-transform shape sx)
      :xform (math/comp-atx xform sx)}))
 
 (deftype TransformedShape [base stack
@@ -160,14 +159,14 @@
 
   Framed
   (frame [this]
-    (if-let [f (:frame state-cache)]
-      f
+    (if-let [s (:shape state-cache)]
+      (frame s)
       (when (framed? base)
         (let [state (reduce frame-transform-step
-                            {:frame (frame base) :xform [1 0 0 1 0 0]}
+                            {:shape base :xform [1 0 0 1 0 0]}
                             stack)]
           (set! state-cache state)
-          (:frame state-cache)))))
+          (frame (:shape state-cache))))))
 
   IContainer
   (contents [_]
@@ -179,7 +178,7 @@
       x
       (if (framed? base)
         (let [state (reduce frame-transform-step
-                            {:frame (frame base) :xform [1 0 0 1 0 0]}
+                            {:shape base :xform [1 0 0 1 0 0]}
                             stack)]
           (set! state-cache state)
           (:xform state-cache))
@@ -471,8 +470,12 @@
     (let [[x y] origin
           o' (math/apply-atx xform origin)
           w' (math/apply-atx xform [(+ x  width) y])
-          h' (math/apply-atx xform [x (+ y height)])]
-      (frame-points [o' w' h'])))
+          h' (math/apply-atx xform [x (+ y height)])
+          verticies [o' (map + o' w') (map + o' w' h') (map + o' h')]]
+      (ClosedSpline.
+       (map #(Line. %1 %2)
+            verticies
+            (concat (rest verticies) [(first verticies)])))))
 
   Framed
   (frame [this]
@@ -511,7 +514,7 @@
 ;; Do we really need composites? Can't we just use vectors?
 (defrecord Composite [contents])
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 ;;;;; Text
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
