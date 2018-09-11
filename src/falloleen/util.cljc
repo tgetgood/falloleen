@@ -1,4 +1,4 @@
-(ns falloleen.renderer.util
+(ns falloleen.util
   (:require [falloleen.math :as math]
             [net.cgrand.macrovich :as macros :include-macros true]))
 

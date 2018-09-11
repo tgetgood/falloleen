@@ -1,5 +1,6 @@
 (ns falloleen.lang
-    (:require [falloleen.math :as math :refer [mm v+ v- v*]]))
+    (:require [falloleen.math :as math :refer [v+ v- v*]]
+              [falloleen.util :as util :include-macros true]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Protocols
@@ -56,6 +57,11 @@
   (width [this] "Returns current width of the window.")
   (height [this] "Returns current height of the window".)
   (render [this shape] "Render shape to this host."))
+
+(util/implement-sequentials
+ Transformable
+ (apply-transform [this xform]
+                  (map #(apply-transform % xform) this)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; type checkers
@@ -144,29 +150,27 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn frame-transform-step [{:keys [xform shape]} o]
-  (let [sx (if (satisfies? AffineTransformation o)
-             (atx o)
-             (atx (fix-coords o (frame shape))))]
+  (let [sx     (if (satisfies? AffineTransformation o)
+                 (atx o)
+                 (atx (fix-coords o (frame shape))))]
     {:shape (apply-transform shape sx)
      :xform (math/comp-atx xform sx)}))
 
 (deftype TransformedShape [base stack
-                           ^:volatile-mutable state-cache
+                           ^:volatile-mutable xform
                            ^:volatile-mutable compile-cache]
+  Transformable
+  (apply-transform [_ xform]
+    (TransformedShape. base (conj stack xform) nil nil))
+
   CompilationCache
   (retrieve [_] compile-cache)
   (store [_ v] (set! compile-cache v))
 
   Framed
   (frame [this]
-    (if-let [s (:shape state-cache)]
-      (frame s)
-      (when (framed? base)
-        (let [state (reduce frame-transform-step
-                            {:shape base :xform [1 0 0 1 0 0]}
-                            stack)]
-          (set! state-cache state)
-          (frame (:shape state-cache))))))
+    (when (framed? base)
+      (frame (apply-transform base (atx this)))))
 
   IContainer
   (contents [_]
@@ -174,19 +178,13 @@
 
   AffineTransformation
   (atx [_]
-    (if-let [x (:xform state-cache)]
-      x
-      (if (framed? base)
-        (let [state (reduce frame-transform-step
-                            {:shape base :xform [1 0 0 1 0 0]}
-                            stack)]
-          (set! state-cache state)
-          (:xform state-cache))
-        ;; REVIEW: If base is not framed, no xforms can be relative. The error
-        ;; produced here will, however, be useless.
-        (let [state (transduce (map atx) math/comp-atx (reverse stack))]
-          (set! state-cache {:xform state})
-          state)))))
+    (if xform
+      xform
+      (let [state (reduce frame-transform-step
+                          {:shape base :xform [1 0 0 1 0 0]}
+                          stack)]
+        (set! xform (:xform state))
+        xform))))
 
 (defn transformed [base stack]
   (TransformedShape. base stack nil nil))
