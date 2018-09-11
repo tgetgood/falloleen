@@ -117,9 +117,9 @@
   "Returns true iff k is a valid relative position."
   [k]
   (if (contains? position-map k)
-    [:relative (get position-map k)]
+    (get position-map k)
     (when (valid-relative? k)
-      k)))
+      (second k))))
 
 (defn frame-points
   "Given a seq of points, return the smallest rectangle (aligned with the axes)
