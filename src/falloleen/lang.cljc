@@ -111,6 +111,11 @@
 (defn relative-coords [[s t] {[x y] :origin w :width h :height}]
   [(+ x (* s w)) (+ y (* t h))])
 
+(defn frame-point [f p]
+  (if (keyword? p)
+    (relative-coords (get position-map p) f)
+    (relative-coords p f)))
+
 (defn valid-relative? [v]
   ;; TODO: just use spec.
   (and (sequential? v)
@@ -262,12 +267,14 @@
 
   LinearTransformation
   (matrix [_]
-    (let [m  (/ y x)
-          m2   (* m m)
-          m2+1 (inc m2)
-          diag (/ (- 1 m2) m2+1)
-          off  (/ (* 2 m) m2+1)]
-      [diag off off (- diag)])))
+    (if (zero? x)
+      [-1 0 0 1 0 0]
+      (let [m  (/ y x)
+            m2   (* m m)
+            m2+1 (inc m2)
+            diag (/ (- 1 m2) m2+1)
+            off  (/ (* 2 m) m2+1)]
+        [diag off off (- diag)]))))
 
 (defn reflection [[x y]]
   (Reflection. x y))
@@ -303,7 +310,7 @@
     (let [r (math/deg->rad angle)
           c (math/cos r)
           s (math/sin r)]
-      [c (- s) s c])))
+      [c s (- s) c])))
 
 (defn rotation [angle]
   (Rotation. angle))
@@ -313,6 +320,9 @@
 (defrecord AffineTransform [m]
   AffineTransformation
   (atx [_] m))
+
+(defn affine [a b c d e f]
+  (AffineTransform. [a b c d e f]))
 
 (defn build-atx [{[a b c d] :matrix [x y] :translation}]
   (AffineTransform. [a b c d x y]))
@@ -497,10 +507,14 @@
     :height 1}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;; Composites
+;;;;; Styles
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defrecord Style [style base]
+  Transformable
+  (apply-transform [_ xform]
+    (Style. style (transformed base [xform])))
+
   Framed
   (frame [_]
     (when (framed? base)
@@ -509,10 +523,7 @@
 (defn style [style base]
   (Style. style base))
 
-;; Do we really need composites? Can't we just use vectors?
-(defrecord Composite [contents])
-
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Text
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

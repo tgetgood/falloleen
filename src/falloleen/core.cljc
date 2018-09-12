@@ -255,6 +255,9 @@
 (defn reduce-transformed [shape]
   (lang/apply-transform (.-base shape) (lang/atx shape)))
 
+(defn frame-point [frame point]
+  (lang/frame-point frame point))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; And Do Something
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -264,6 +267,8 @@
   isn't generally meaningful."
   [shape host]
   (lang/render host
-               (-> shape
-                   (reflect [1 0])
-                   (translate [0 (- (lang/height host))]))))
+               (lang/stack-transform shape
+                   (lang/affine 1 0 0 -1 0 (lang/height host))
+
+                   #_(reflect [1 0])
+                   #_(translate [0 (lang/height host)]))))
