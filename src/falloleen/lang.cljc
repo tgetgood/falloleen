@@ -10,15 +10,9 @@
   "Shapes that know how to apply affine transformations to themselves."
   (apply-transform [this xform]))
 
-(defprotocol LinearTransformation
-  (matrix [this] "Returns the matrix form of this 2d linear transform."))
-
 (defprotocol AffineTransformation
-  (atx [this]
+  (matrix [this]
     "Return the 2d Affine Transformation matrix in the form [a b c d x y"))
-
-(defprotocol IFixedTranslation
-  (offset [this]))
 
 (defprotocol IRelative
   "Translations relative to a shape: :centre, :bottom-left, etc.."
@@ -156,8 +150,8 @@
 
 (defn frame-transform-step [{:keys [xform shape]} o]
   (let [sx     (if (satisfies? AffineTransformation o)
-                 (atx o)
-                 (atx (fix-coords o (frame shape))))]
+                 (matrix o)
+                 (matrix (fix-coords o (frame shape))))]
     {:shape (apply-transform shape sx)
      :xform (math/comp-atx xform sx)}))
 
@@ -175,14 +169,14 @@
   Framed
   (frame [this]
     (when (framed? base)
-      (frame (apply-transform base (atx this)))))
+      (frame (apply-transform base (matrix this)))))
 
   IContainer
   (contents [_]
     base)
 
   AffineTransformation
-  (atx [_]
+  (matrix [_]
     (if xform
       xform
       (let [state (reduce frame-transform-step
@@ -210,12 +204,8 @@
 
 (defrecord FixedTranslation [x y]
   AffineTransformation
-  (atx [_]
-    [1 0 0 1 x y])
-
-  IFixedTranslation
-  (offset [_]
-    [x y]))
+  (matrix [_]
+    [1 0 0 1 x y]))
 
 (defn reverse-translation [{:keys [x y]}]
   (FixedTranslation. (- x) (- y)))
@@ -233,10 +223,10 @@
 
 (defrecord RecentredLinearTransform [translation linear]
   AffineTransformation
-  (atx [_]
-    (let [tx (atx translation)
-          rtx (atx (reverse-translation translation))]
-      (math/comp-atx tx (atx linear) rtx))))
+  (matrix [_]
+    (let [tx (matrix translation)
+          rtx (matrix (reverse-translation translation))]
+      (math/comp-atx tx (matrix linear) rtx))))
 
 (defrecord RelativeRecentredLinearTransform [reltrans linear]
   IRelative
@@ -261,11 +251,6 @@
 
 (defrecord Reflection [x y]
   AffineTransformation
-  (atx [this]
-    (let [[a b c d] (matrix this)]
-      [a b c d 0 0]))
-
-  LinearTransformation
   (matrix [_]
     (if (zero? x)
       [-1 0 0 1 0 0]
@@ -274,7 +259,7 @@
             m2+1 (inc m2)
             diag (/ (- 1 m2) m2+1)
             off  (/ (* 2 m) m2+1)]
-        [diag off off (- diag)]))))
+        [diag off off (- diag) 0 0]))))
 
 (defn reflection [[x y]]
   (Reflection. x y))
@@ -283,13 +268,8 @@
 
 (defrecord Scaling [x y]
   AffineTransformation
-  (atx [this]
-    (let [[a b c d] (matrix this)]
-      [a b c d 0 0]))
-
-  LinearTransformation
   (matrix [_]
-    [x 0 0 y]))
+    [x 0 0 y 0 0]))
 
 (defn scaling [e]
   (cond
@@ -301,31 +281,26 @@
 
 (defrecord Rotation [angle]
   AffineTransformation
-  (atx [this]
-    (let [[a b c d] (matrix this)]
-      [a b c d 0 0]))
-
-  LinearTransformation
   (matrix [_]
     (let [r (math/deg->rad angle)
           c (math/cos r)
           s (math/sin r)]
-      [c s (- s) c])))
+      [c s (- s) c 0 0])))
 
 (defn rotation [angle]
   (Rotation. angle))
 
 ;;;;; Arbitrary Affine Transformation
 
-(defrecord AffineTransform [m]
+(defrecord AffineTransform [a b c d x y]
   AffineTransformation
-  (atx [_] m))
+  (matrix [_] [a b c d x y]))
 
 (defn affine [a b c d e f]
-  (AffineTransform. [a b c d e f]))
+  (AffineTransform. a b c d e f))
 
 (defn build-atx [{[a b c d] :matrix [x y] :translation}]
-  (AffineTransform. [a b c d x y]))
+  (AffineTransform. a b c d x y))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Shapes

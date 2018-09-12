@@ -60,7 +60,7 @@
 
   TransformedShape
   (cmds [this]
-    (let [[a b c d x y] (lang/atx this)]
+    (let [[a b c d x y] (lang/matrix this)]
       (conj
        (into
         [:save

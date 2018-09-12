@@ -253,7 +253,7 @@
     (lang/boundary shape)))
 
 (defn reduce-transformed [shape]
-  (lang/apply-transform (.-base shape) (lang/atx shape)))
+  (lang/apply-transform (.-base shape) (lang/matrix shape)))
 
 (defn frame-point [frame point]
   (lang/frame-point frame point))
