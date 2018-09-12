@@ -33,7 +33,7 @@
   ;; curves --- to represent the edges of objects. They have no stroke, just a
   ;; fill, and so I can control exactly how thick the line is at all points. Soo
   ;; much work... But it has the potential to be a solution.
-  (let [m (math/sqrt (math/det a b c d))]
+  (let [m (math/sqrt (math/abs (math/det a b c d)))]
     (if (math/nan? m)
       1
       m)))
