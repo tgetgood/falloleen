@@ -12,29 +12,29 @@
 
 (defn translate
   [shape v]
-  (lang/stack-transform shape (lang/translation v)))
+  (lang/wrap-affine shape (lang/translation v)))
 
 (defn reflect
   ([shape axis]
-   (lang/stack-transform shape (lang/reflection axis)))
+   (lang/wrap-affine shape (lang/reflection axis)))
   ([shape centre axis]
    (lang/transform-with-centre shape centre (lang/reflection axis))))
 
 (defn scale
   ([shape extent]
-   (lang/stack-transform shape (lang/scaling extent)))
+   (lang/wrap-affine shape (lang/scaling extent)))
   ([shape centre extent]
    (lang/transform-with-centre shape centre (lang/scaling extent))))
 
 (defn rotate
   ([shape angle]
-   (lang/stack-transform shape (lang/rotation angle)))
+   (lang/wrap-affine shape (lang/rotation angle)))
   ([shape centre angle]
    (lang/transform-with-centre shape centre (lang/rotation angle))))
 
 (defn transform
   [shape xform]
-  (lang/stack-transform shape (lang/build-atx xform)))
+  (lang/wrap-affine shape (lang/build-atx xform)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Templates
@@ -224,12 +224,7 @@
 (defn framed?
   "Returns true iff shape has a defined frame."
   [shape]
-  ;; REVIEW: This is awkward because some shapes implement Framed, but aren't
-  ;; always guaranteed to have a frame. Take the case of a spline which
-  ;; generally has a frame, but it's possible that one of the segments is
-  ;; something novel and a frame can't be computed. So having a frame and being
-  ;; able to compute the frame aren't the same thing.
-  (and (lang/framed? shape) (lang/frame shape)))
+  (lang/compact? shape))
 
 (defn frame
   "Returns a frame for shape. A frame is three vectors which are the corner,
@@ -237,9 +232,10 @@
   [shape]
   (when (framed? shape)
     (cond
-      (satisfies? lang/Framed shape) (lang/frame shape)
-      (template? shape)              (frame (lang/expand-template shape))
-      :else                          nil)))
+      (satisfies? lang/Framed shape)     (lang/frame shape)
+      (satisfies? lang/IContainer shape) (frame (lang/contents shape))
+      (template? shape)                  (frame (lang/expand-template shape))
+      :else                              nil)))
 
 (defn closed?
   "Returns true iff shape has no boundary."
@@ -249,14 +245,11 @@
 (defn boundary
   "Returns the boundary of a shape, or nil if it hasn't got one."
   [shape]
-  (when (satisfies? lang/Compact shape)
+  (when (satisfies? lang/IShape shape)
     (lang/boundary shape)))
 
-(defn reduce-transformed [shape]
-  (lang/apply-transform (.-base shape) (lang/matrix shape)))
-
 (defn frame-point [frame point]
-  (lang/frame-point frame point))
+  (lang/point-in-frame frame point))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; And Do Something
@@ -267,8 +260,5 @@
   isn't generally meaningful."
   [shape host]
   (lang/render host
-               (lang/stack-transform shape
-                   (lang/affine 1 0 0 -1 0 (lang/height host))
-
-                   #_(reflect [1 0])
-                   #_(translate [0 (lang/height host)]))))
+               (lang/wrap-affine shape
+                   (lang/affine-transformation 1 0 0 -1 0 (lang/height host)))))

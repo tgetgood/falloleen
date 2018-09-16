@@ -1,5 +1,6 @@
 (ns falloleen.renderer.canvas
   #?(:clj (:import [falloleen.lang
+                    AffineWrapper
                     Arc
                     Bezier
                     Circle
@@ -7,22 +8,21 @@
                     Line
                     RawText
                     Spline
-                    Style
-                    TransformedShape]))
+                    Style]))
   (:require [clojure.string :as string]
             [falloleen.lang :as lang :refer
              #?(:clj []
                 :cljs [Arc
+                       AffineWrapper
                        Bezier
                        Circle
                        ClosedSpline
                        Line
                        RawText
                        Spline
-                       Style
-                       TransformedShape])]
+                       Style])]
             [falloleen.math :as math]
-            [falloleen.util :as util :include-macros true]
+            [falloleen.util :include-macros true]
             [net.cgrand.macrovich :as macros :include-macros true]))
 
 (defn convert-styles [{:keys [stroke fill opacity font]}]
@@ -41,7 +41,7 @@
 (defprotocol Canvas2DRenderable
   (cmds [this] "Returns a map of cmds to draw in various circumstances."))
 
-(util/implement-sequentials
+(falloleen.util/implement-sequentials
  Canvas2DRenderable
  (cmds [this]
    (mapcat cmds this)))
@@ -58,15 +58,17 @@
       (println "Don't know how to render a "
                (type this) ". Doing nothing.")))
 
-  TransformedShape
+  AffineWrapper
   (cmds [this]
-    (let [[a b c d x y] (lang/matrix this)]
+    (let [[a b c d x y] (lang/aw-matrix this)
+          shape (.-shape this)]
       (conj
        (into
         [:save
          [:transform a b c d x y]]
-        (cmds (lang/contents this)))
-       :restore)))
+        (cmds shape))
+       :restore)
+      ))
 
   RawText
   (cmds [{:keys [text]}]
@@ -247,7 +249,7 @@
   [[_ a b c d x y :as i] ctx stack]
   (let [t (get (first stack) :transform)
         m (get (first stack) :line-width 1)
-        nm (/ m (util/magnitude a b c d))
+        nm (/ m (falloleen.util/magnitude a b c d))
         nt (math/comp-atx t (rest i))]
     (.transform ctx a c b d x y)
     #?(:cljs (unchecked-set ctx "lineWidth" nm))

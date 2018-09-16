@@ -6,17 +6,24 @@
 ;;;;; Protocols
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defprotocol Transformable
+;;;; Transformations
+
+(defprotocol IAffineTransformation
+  (matrix [this frame]
+    "Return the 2d Affine Transformation matrix in the form [a b c d x y]. Frame
+  is provided to allow for relative coordinate systems.")
+  (move-point [this frame vector]))
+
+;;;;; Shapes
+
+(defprotocol IShape
+  "Basic properties of anything geometric."
+  (dimension [this] "Euclidean dimension.")
+  (boundary [this] "Returns the boundary of the shape which can be empty."))
+
+(defprotocol Affine
   "Shapes that know how to apply affine transformations to themselves."
-  (apply-transform [this xform]))
-
-(defprotocol AffineTransformation
-  (matrix [this]
-    "Return the 2d Affine Transformation matrix in the form [a b c d x y"))
-
-(defprotocol IRelative
-  "Translations relative to a shape: :centre, :bottom-left, etc.."
-  (fix-coords [this frame]))
+  (transform [this xform]))
 
 (defprotocol IContainer
   "Uniform access to contents of shape containers."
@@ -26,36 +33,25 @@
   "Macros for shapes."
   (expand-template [this]))
 
-(defprotocol Compact
-  "Shapes which are finite in extent and contain their boundary (if they have
-  one). Compact manifolds are the basic building blocks of our system.
-  I haven't found a useful reason to be able to refer to the interior of a
-  compact manifold, so I haven't added it."
-  (dimension [this])
-  (boundary [this]))
-
 (defprotocol Framed
-  "Shapes that are bounded in space."
+  "Compact sets have more properties than this, but I haven't found a need for
+  them yet."
   (frame [this]
     "Returns a rectangle which fully encloses this shape. The rectangle does not
-    have to be minimal, but the closer you can get, the better the results will
-    generally be."))
+  have to be minimal, but the closer you can get, the better the results will
+  generally be."))
 
-(defprotocol CompilationCache
-  "Shapes that can cache their compiled rendering instructions."
-  (retrieve [this])
-  (store [this v]))
+(defprotocol Compilable
+  (compile [this compiler]))
+
+;;;;; External Interface
 
 (defprotocol Host
-  (base [this] "Returns underlying object.")
+  "A host is anything capable of rendering an image to a screen (or to paper I
+  suppose)."
   (width [this] "Returns current width of the window.")
   (height [this] "Returns current height of the window".)
   (render [this shape] "Render shape to this host."))
-
-(util/implement-sequentials
- Transformable
- (apply-transform [this xform]
-                  (map #(apply-transform % xform) this)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; type checkers
@@ -64,32 +60,37 @@
 (defn template? [shape]
   (satisfies? ITemplate shape))
 
-(defn framed? [shape]
+(defn compact? [shape]
   (cond
     (satisfies? Framed shape)     true
-    (satisfies? IContainer shape) (framed? (contents shape))
-    (template? shape)             (framed? (expand-template shape))
+    (satisfies? IContainer shape) (compact? (contents shape))
+    (template? shape)             (compact? (expand-template shape))
     :else                         false))
 
 (defn closed?
-  "Returns true iff shape has no boundary."
+  "Returns true iff shape is compact and has no boundary."
   [shape]
-  (or (not (satisfies? Compact shape)) (empty? (boundary shape))))
+  (and (compact? shape) (empty? (boundary shape))))
 
-(defn interior [shape]
-  ;; TODO: Just subtract the boundary from the whole thing.
-  ;; REVIEW: I haven't found a use for this yet, so maybe should just delete it.
-  )
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Frames and Relative locations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (declare rectangle)
 
+;; TODO: just use spec.
+
 (defn v2d? [v]
   (and (vector? v)
        (= 2 (count v))
        (every? number? v)))
+
+(defn valid-relative? [v]
+  (and (sequential? v)
+       (= 2 (count v))
+       (= :relative (first v))
+       (v2d? (second v))
+       (every? #(<= 0 % 1) (second v))))
 
 (def position-map
   {:centre       [0.5 0.5]
@@ -105,18 +106,12 @@
 (defn relative-coords [[s t] {[x y] :origin w :width h :height}]
   [(+ x (* s w)) (+ y (* t h))])
 
-(defn frame-point [f p]
+(defn point-in-frame
+  "Given a frame and a relative point, return the respective absolute point."
+  [f p]
   (if (keyword? p)
     (relative-coords (get position-map p) f)
     (relative-coords p f)))
-
-(defn valid-relative? [v]
-  ;; TODO: just use spec.
-  (and (sequential? v)
-       (= 2 (count v))
-       (= :relative (first v))
-       (v2d? (second v))
-       (every? #(<= 0 % 1) (second v))))
 
 (defn relative-vector
   "Returns true iff k is a valid relative position."
@@ -148,73 +143,69 @@
 ;;;;; Affine Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn frame-transform-step [{:keys [xform shape]} o]
-  (let [sx     (if (satisfies? AffineTransformation o)
-                 (matrix o)
-                 (matrix (fix-coords o (frame shape))))]
-    {:shape (apply-transform shape sx)
-     :xform (math/comp-atx xform sx)}))
-
-(deftype TransformedShape [base stack
-                           ^:volatile-mutable xform
-                           ^:volatile-mutable compile-cache]
-  Transformable
-  (apply-transform [_ xform]
-    (TransformedShape. base (conj stack xform) nil nil))
-
-  CompilationCache
-  (retrieve [_] compile-cache)
-  (store [_ v] (set! compile-cache v))
+(deftype AffineWrapper [shape xform
+                        ^:volatile-mutable cache]
+  IShape
+  (dimension [_]
+    (dimension shape))
+  (boundary [_]
+    (AffineWrapper. (boundary shape) xform nil))
 
   Framed
-  (frame [this]
-    (when (framed? base)
-      (frame (apply-transform base (matrix this)))))
+  (frame [_]
+    (when (compact? shape)
+      (transform (frame shape) xform)))
 
-  IContainer
-  (contents [_]
-    base)
+  Compilable
+  (compile [this compiler]
+    (if cache
+      cache
+      (let [code (compiler this)]
+        (set! cache code)
+        code))))
 
-  AffineTransformation
-  (matrix [_]
-    (if xform
-      xform
-      (let [state (reduce frame-transform-step
-                          {:shape base :xform [1 0 0 1 0 0]}
-                          stack)]
-        (set! xform (:xform state))
-        xform))))
+(defn aw-matrix [aw]
+  (matrix (.-xform aw) (frame (.-shape aw))))
 
-(defn transformed [base stack]
-  (TransformedShape. base stack nil nil))
+(defn wrap-affine [shape xform]
+  (AffineWrapper. shape xform nil))
 
-(defn transformed? [shape]
-  (instance? TransformedShape shape))
+;;;;; Arbitrary Affine Transformation
 
-(defn stack-transform
-  ([shape xform]
-   (if (transformed? shape)
-     (transformed (contents shape) (conj (.-stack shape) xform))
-     (transformed shape [xform])))
-  ([shape xform & xforms]
-   (let [base (stack-transform shape xform)]
-     (transformed (.-base base) (into (.-stack base) xforms)))))
+(defrecord RawAffineTransformation [a b c d x y]
+  IAffineTransformation
+  (matrix [_ _] [a b c d x y])
+  (move-point [_ _ v]
+    (math/apply-atx [a b c d x y] v)))
+
+(defn affine-transformation
+  ([[a b c d e f]]
+   (RawAffineTransformation. a b c d e f))
+  ([a b c d e f]
+   (RawAffineTransformation. a b c d e f)))
+
+(defn build-atx [{[a b c d] :matrix [x y] :translation}]
+  (RawAffineTransformation. a b c d x y))
 
 ;;;;; Translation
 
 (defrecord FixedTranslation [x y]
-  AffineTransformation
-  (matrix [_]
-    [1 0 0 1 x y]))
+  IAffineTransformation
+  (matrix [_ _]
+    [1 0 0 1 x y])
+  (move-point [_ _ [p q]]
+    [(+ p x) (+ q y)]))
 
 (defn reverse-translation [{:keys [x y]}]
   (FixedTranslation. (- x) (- y)))
 
 (defrecord RelativeTranslation [k]
-  IRelative
-  (fix-coords [_ box]
+  IAffineTransformation
+  (matrix [_ box]
     (let [[x y] (relative-coords k box)]
-      (FixedTranslation. x y))))
+      [1 0 0 1 x y]))
+  (move-point [_ f v]
+    (mapv + v (relative-coords k f))))
 
 (defn translation [v]
   (if-let [v' (relative-vector v)]
@@ -222,17 +213,21 @@
     (FixedTranslation. (nth v 0) (nth v 1))))
 
 (defrecord RecentredLinearTransform [translation linear]
-  AffineTransformation
-  (matrix [_]
-    (let [tx (matrix translation)
-          rtx (matrix (reverse-translation translation))]
-      (math/comp-atx tx (matrix linear) rtx))))
+  IAffineTransformation
+  (matrix [_ _]
+    (let [tx (matrix translation nil)
+          rtx (matrix (reverse-translation translation) nil)]
+      (math/comp-atx tx (matrix linear nil) rtx)))
+  (move-point [this f v]
+    (math/apply-atx (matrix this f) v)))
 
 (defrecord RelativeRecentredLinearTransform [reltrans linear]
-  IRelative
-  (fix-coords [_ frame]
-    (let [trans (fix-coords reltrans frame)]
-      (RecentredLinearTransform. trans linear))))
+  IAffineTransformation
+  (matrix [_ frame]
+    (let [trans (affine-transformation (matrix reltrans frame))]
+      (matrix (RecentredLinearTransform. trans linear) nil)))
+  (move-point [this f v]
+    (math/apply-atx (matrix this f) v)))
 
 (defn transform-with-centre
   "Returns a transformed shape which applies linear transform xform around
@@ -241,17 +236,17 @@
   applies xform."
   [shape centre xform]
   (if (= centre [0 0])
-    (stack-transform shape xform)
+    (wrap-affine shape xform)
     (let [t (translation centre)]
       (if (relative-vector centre)
-        (stack-transform shape (RelativeRecentredLinearTransform. t xform))
-        (stack-transform shape (RecentredLinearTransform. t xform))))))
+        (wrap-affine shape (RelativeRecentredLinearTransform. t xform))
+        (wrap-affine shape (RecentredLinearTransform. t xform))))))
 
 ;;;;; Reflection
 
 (defrecord Reflection [x y]
-  AffineTransformation
-  (matrix [_]
+  IAffineTransformation
+  (matrix [_ _]
     (if (zero? x)
       [-1 0 0 1 0 0]
       (let [m  (/ y x)
@@ -259,7 +254,9 @@
             m2+1 (inc m2)
             diag (/ (- 1 m2) m2+1)
             off  (/ (* 2 m) m2+1)]
-        [diag off off (- diag) 0 0]))))
+        [diag off off (- diag) 0 0])))
+  (move-point [this f p]
+    (math/apply-atx (matrix this f) p)))
 
 (defn reflection [[x y]]
   (Reflection. x y))
@@ -267,8 +264,10 @@
 ;;;;; Scaling
 
 (defrecord Scaling [x y]
-  AffineTransformation
-  (matrix [_]
+  IAffineTransformation
+  (move-point [_ _ [p q]]
+    [(* x p) (* y q)])
+  (matrix [_ _]
     [x 0 0 y 0 0]))
 
 (defn scaling [e]
@@ -280,82 +279,51 @@
 ;;;;; Rotation
 
 (defrecord Rotation [angle]
-  AffineTransformation
-  (matrix [_]
+  IAffineTransformation
+  (matrix [_ _]
     (let [r (math/deg->rad angle)
           c (math/cos r)
           s (math/sin r)]
-      [c s (- s) c 0 0])))
+      [c (- s) s c 0 0]))
+    (move-point [this f p]
+    (math/apply-atx (matrix this f) p)))
 
 (defn rotation [angle]
   (Rotation. angle))
-
-;;;;; Arbitrary Affine Transformation
-
-(defrecord AffineTransform [a b c d x y]
-  AffineTransformation
-  (matrix [_] [a b c d x y]))
-
-(defn affine [a b c d e f]
-  (AffineTransform. a b c d e f))
-
-(defn build-atx [{[a b c d] :matrix [x y] :translation}]
-  (AffineTransform. a b c d x y))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Shapes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defrecord Line [from to]
-  Transformable
-  (apply-transform [_ xform]
-    (Line. (math/apply-atx xform from) (math/apply-atx xform to)))
+  Affine
+  (transform [this xform]
+    (let [f (frame this)]
+      (Line. (move-point xform f from) (move-point xform f to))))
 
   Framed
   (frame [_]
     (let [[dx dy] (v- to from)]
       (assoc rectangle :origin from :width dx :height dy)))
 
-  Compact
+  IShape
   (dimension [_] 1)
   (boundary [_] [from to]))
 
 (defrecord Bezier [from to c1 c2]
-  Transformable
-  (apply-transform [_ xform]
-    (let [[f' t' c1' c2'] (map #(math/apply-atx xform %) [from to c1 c2])]
+  Affine
+  (transform [this xform]
+    (let [box (frame this)
+          [f' t' c1' c2'] (map #(move-point xform box %) [from to c1 c2])]
       (Bezier. f' t' c1' c2')))
 
   Framed
   (frame [_]
-    ;; REVIEW: This is correct, but there's probably a tighter bound to be had.
     (frame-points [from to c1 c2]))
 
-  Compact
+  IShape
   (dimension [_] 1)
   (boundary [_] [from to]))
-
-;; REVIEW: This is awkward. A circle in geometry is a unit. When you think about
-;; circles, you don't want to think about whether they go clockwise or anti-,
-;; nor where the 'joining point' is.
-;;
-;; That's because those things don't need to be specified in a circle and so at
-;; the level of abstraction at which we generally operate, those things are not
-;; defined.
-;;
-;; This problem is that if you take the difference of two nested circles you
-;; should get an annulus, but I don't know of any drawing language that can do
-;; that without specifying that the circles travel in opposite directions.
-;;
-;; A good solution would be to add a solver that figures out a set of paths
-;; which have the correct winding number. The problem is that 1) that's hard,
-;; and 2) you're now computing something which the gpu has to go and
-;; invert. That's wasteful. There has to be a better way.
-;;
-;; I'm not going to compromise and let proceedural details bleed into the high
-;; level logic this time around. It was a mistake last time and even though I
-;; don't see a solution, I'd rather wait one out than wind up in that mess
-;; again.
 
 (defrecord Arc [centre radius from to clockwise?]
   Framed
@@ -367,7 +335,7 @@
              :width  (* 2 radius)
              :height (* 2 radius))))
 
-  Compact
+  IShape
   (dimension [_] 1)
   (boundary [_]
     (when ((< (math/abs (- from to)) (* 2 math/pi)))
@@ -377,14 +345,15 @@
            (mapv #(v+ % centre))))))
 
 (defrecord Circle [centre radius]
-  Transformable
-  (apply-transform [_ xform]
-    (let [c' (math/apply-atx xform centre)
-          r* (math/apply-atx xform (mapv + centre [radius 0]))
+  Affine
+  (transform [this xform]
+    (let [f (frame this)
+          c' (move-point xform f centre)
+          r* (move-point xform f (mapv + centre [radius 0]))
           r' (math/dist c' r*)]
       (Circle. c' r')))
 
-  Compact
+  IShape
   (dimension [_] 2)
   (boundary [_] (Arc. centre radius 0 (* 2 math/pi) false))
 
@@ -397,45 +366,37 @@
              :height (* 2 radius)))))
 
 (defrecord Spline [segments]
-  Transformable
-  (apply-transform [_ xform]
-    (Spline. (map #(apply-transform % xform) segments)))
+  Affine
+  (transform [_ xform]
+    ;; REVIEW: Will this work for relative coords? What are we operating
+    ;; relative to? I think this is broken
+    (Spline. (map #(transform % xform) segments)))
 
   Framed
   (frame [_]
-    (when (every? framed? segments)
+    (when (every? compact? segments)
       (frame-rects (map frame segments))))
 
-  Compact
+  IShape
   (dimension [_] 1)
   (boundary [_]
     (let [a (first (boundary (first segments)))
           b (last (boundary (last segments)))]
       (when-not (= a b)
-        [a b])))
-  ;; REVIEW: Here's where it gets interesting. Some shapes are the boundaries of
-  ;; higher dimension shapes. This is one, the arc is another. This isn't a
-  ;; property of the kind of shape though, it's a topological peculiarity of the
-  ;; particular shape itself.
-  ;;
-  ;; Topologically if a shape has no boundary, then it is the boundary of a
-  ;; shape of one higher dimension. So that plays to the same protocol, because
-  ;; each kind of shape has a higher dimensional analog. Maybe that table should
-  ;; live somewhere else? I don't know yet.
-  )
+        [a b]))))
 
 (defrecord ClosedSpline [segments]
-  Transformable
-  (apply-transform [_ xform]
+  Affine
+  (transform [_ xform]
     (ClosedSpline.
-     (map #(apply-transform % xform) segments)))
+     (map #(transform % xform) segments)))
 
   Framed
   (frame [_]
-    (when (every? framed? segments)
+    (when (every? compact? segments)
       (frame-rects (map frame segments))))
 
-  Compact
+  IShape
   (dimension [_] 2)
   (boundary [_] (Spline. segments)))
 
@@ -448,12 +409,12 @@
   (ClosedSpline. segs))
 
 (defrecord Rectangle [origin width height]
-  Transformable
-  (apply-transform [_ xform]
+  Affine
+  (transform [this xform]
     (let [[x y] origin
-          o' (math/apply-atx xform origin)
-          w' (math/apply-atx xform [(+ x  width) y])
-          h' (math/apply-atx xform [x (+ y height)])
+          o' (move-point xform this origin)
+          w' (move-point xform this [(+ x  width) y])
+          h' (move-point xform this [x (+ y height)])
           verticies [o' (map + o' w') (map + o' w' h') (map + o' h')]]
       (ClosedSpline.
        (map #(Line. %1 %2)
@@ -486,13 +447,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defrecord Style [style base]
-  Transformable
-  (apply-transform [_ xform]
-    (Style. style (transformed base [xform])))
+  IShape
+  (dimension [_] (dimension base))
+  (boundary [_]
+    (Style. style (boundary base)))
+
+  IContainer
+  (contents [_]
+    base)
+
+  Affine
+  (transform [_ xform]
+    (Style. style (transform base xform)))
 
   Framed
   (frame [_]
-    (when (framed? base)
+    (when (compact? base)
       (frame base))))
 
 (defn style [style base]
@@ -522,3 +492,18 @@
 
 (defn difference [a b]
   (Difference. a b))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;; Sequentials
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(util/implement-sequentials
+  Affine
+ (transform [this xform]
+   (map #(transform % xform) this)))
+
+(util/implement-sequentials
+  Framed
+  (frame [this]
+    (when (every? compact? this)
+      (frame-rects (map frame this)))))
