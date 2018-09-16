@@ -235,7 +235,7 @@
   "Returns a frame for shape. A frame is three vectors which are the corner,
   width, and height vectors of a rectangle which fully contains the shape,"
   [shape]
-  (if (framed? shape)
+  (when (framed? shape)
     (cond
       (satisfies? lang/Framed shape) (lang/frame shape)
       (template? shape)              (frame (lang/expand-template shape))
