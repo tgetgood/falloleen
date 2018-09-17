@@ -500,11 +500,18 @@
   (Difference. a b))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;;; Sequentials
+;;;;; Default protocol impls
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(extend-protocol Affine
+  #?(:clj Object :cljs default)
+  (transform [this xform f]
+    (if (template? this)
+      (transform (expand-template this) xform f)
+      (println "I don't know how to transform a " (type this)))))
+
 (util/implement-sequentials
-  Affine
+ Affine
  (transform [this xform f]
    (map #(transform % xform f) this)))
 

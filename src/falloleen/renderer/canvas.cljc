@@ -129,12 +129,12 @@
             :end-figure)))
 
   Style
-  (cmds [{:keys [style base]}]
+  (cmds [{:keys [style shape]}]
 
     (into [:save]
           (concat
            (convert-styles style)
-           (cmds base)
+           (cmds shape)
            [:restore]))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
