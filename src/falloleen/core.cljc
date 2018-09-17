@@ -251,6 +251,14 @@
 (defn frame-point [frame point]
   (lang/point-in-frame frame point))
 
+(defn collapse [affine]
+  (if (lang/aw? affine)
+    (let [s (.-shape affine)
+          x (.-xform affine)
+          c (collapse s)]
+      (lang/transform c x (frame c)))
+    affine))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; And Do Something
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

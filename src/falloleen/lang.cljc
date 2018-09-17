@@ -171,6 +171,9 @@
         (set! cache code)
         code))))
 
+(defn aw? [x]
+  (instance? AffineWrapper x))
+
 (defn aw-matrix [aw]
   (matrix (.-xform aw) (frame (.-shape aw))))
 
