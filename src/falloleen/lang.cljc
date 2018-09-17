@@ -23,7 +23,7 @@
 
 (defprotocol Affine
   "Shapes that know how to apply affine transformations to themselves."
-  (transform [this xform]))
+  (transform [this xform frame]))
 
 (defprotocol IContainer
   "Uniform access to contents of shape containers."
@@ -145,6 +145,13 @@
 
 (deftype AffineWrapper [shape xform
                         ^:volatile-mutable cache]
+
+  Affine
+  (transform [this xf' f]
+    (-> shape
+        (transform xform (frame shape))
+        (transform xf' f)))
+
   IShape
   (dimension [_]
     (dimension shape))
@@ -154,7 +161,7 @@
   Framed
   (frame [_]
     (when (compact? shape)
-      (transform (frame shape) xform)))
+      (frame (transform shape xform (frame shape)))))
 
   Compilable
   (compile [this compiler]
@@ -297,9 +304,10 @@
 
 (defrecord Line [from to]
   Affine
-  (transform [this xform]
-    (let [f (frame this)]
-      (Line. (move-point xform f from) (move-point xform f to))))
+;; FIXME: transform should be relative to the frame of reference of the
+;; transformation or the transformed?
+  (transform [this xform f]
+    (Line. (move-point xform f from) (move-point xform f to)))
 
   Framed
   (frame [_]
@@ -312,9 +320,8 @@
 
 (defrecord Bezier [from to c1 c2]
   Affine
-  (transform [this xform]
-    (let [box (frame this)
-          [f' t' c1' c2'] (map #(move-point xform box %) [from to c1 c2])]
+  (transform [this xform box]
+    (let [[f' t' c1' c2'] (map #(move-point xform box %) [from to c1 c2])]
       (Bezier. f' t' c1' c2')))
 
   Framed
@@ -346,9 +353,8 @@
 
 (defrecord Circle [centre radius]
   Affine
-  (transform [this xform]
-    (let [f (frame this)
-          c' (move-point xform f centre)
+  (transform [this xform f]
+    (let [c' (move-point xform f centre)
           r* (move-point xform f (mapv + centre [radius 0]))
           r' (math/dist c' r*)]
       (Circle. c' r')))
@@ -367,10 +373,10 @@
 
 (defrecord Spline [segments]
   Affine
-  (transform [_ xform]
+  (transform [_ xform f]
     ;; REVIEW: Will this work for relative coords? What are we operating
     ;; relative to? I think this is broken
-    (Spline. (map #(transform % xform) segments)))
+    (Spline. (map #(transform % xform f) segments)))
 
   Framed
   (frame [_]
@@ -387,9 +393,9 @@
 
 (defrecord ClosedSpline [segments]
   Affine
-  (transform [_ xform]
+  (transform [_ xform f]
     (ClosedSpline.
-     (map #(transform % xform) segments)))
+     (map #(transform % xform f) segments)))
 
   Framed
   (frame [_]
@@ -410,11 +416,11 @@
 
 (defrecord Rectangle [origin width height]
   Affine
-  (transform [this xform]
+  (transform [this xform f]
     (let [[x y] origin
-          o' (move-point xform this origin)
-          w' (move-point xform this [(+ x  width) y])
-          h' (move-point xform this [x (+ y height)])
+          o' (move-point xform f origin)
+          w' (move-point xform f [(+ x  width) y])
+          h' (move-point xform f [x (+ y height)])
           verticies [o' (map + o' w') (map + o' w' h') (map + o' h')]]
       (ClosedSpline.
        (map #(Line. %1 %2)
@@ -446,27 +452,27 @@
 ;;;;; Styles
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defrecord Style [style base]
+(defrecord Style [style shape]
   IShape
-  (dimension [_] (dimension base))
+  (dimension [_] (dimension shape))
   (boundary [_]
-    (Style. style (boundary base)))
+    (Style. style (boundary shape)))
 
   IContainer
   (contents [_]
-    base)
+    shape)
 
   Affine
-  (transform [_ xform]
-    (Style. style (transform base xform)))
+  (transform [_ xform f]
+    (Style. style (transform shape xform f)))
 
   Framed
   (frame [_]
-    (when (compact? base)
-      (frame base))))
+    (when (compact? shape)
+      (frame shape))))
 
-(defn style [style base]
-  (Style. style base))
+(defn style [style shape]
+  (Style. style shape))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Text
@@ -499,8 +505,8 @@
 
 (util/implement-sequentials
   Affine
- (transform [this xform]
-   (map #(transform % xform) this)))
+ (transform [this xform f]
+   (map #(transform % xform f) this)))
 
 (util/implement-sequentials
   Framed
