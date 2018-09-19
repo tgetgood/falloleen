@@ -221,6 +221,9 @@
 
 ;;;;; Frames
 
+(defn coordinate-frame [origin a b]
+  (lang/coordinate-frame origin a b))
+
 (defn framed?
   "Returns true iff shape has a defined frame."
   [shape]
@@ -232,7 +235,7 @@
   [shape]
   (when (framed? shape)
     (cond
-      (satisfies? lang/Framed shape)     (lang/frame shape)
+      (satisfies? lang/Bounded shape)     (lang/extent shape)
       (satisfies? lang/IContainer shape) (frame (lang/contents shape))
       (template? shape)                  (frame (lang/expand-template shape))
       :else                              nil)))

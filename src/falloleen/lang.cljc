@@ -33,10 +33,10 @@
   "Macros for shapes."
   (expand-template [this]))
 
-(defprotocol Framed
+(defprotocol Bounded
   "Compact sets have more properties than this, but I haven't found a need for
   them yet."
-  (frame [this]
+  (extent [this]
     "Returns a rectangle which fully encloses this shape. The rectangle does not
   have to be minimal, but the closer you can get, the better the results will
   generally be."))
@@ -62,7 +62,7 @@
 
 (defn compact? [shape]
   (cond
-    (satisfies? Framed shape)     true
+    (satisfies? Bounded shape)     true
     (satisfies? IContainer shape) (compact? (contents shape))
     (template? shape)             (compact? (expand-template shape))
     :else                         false))
@@ -76,7 +76,35 @@
 ;;;;; Frames and Relative locations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(declare rectangle)
+(declare spline)
+(declare line)
+
+(defn verticies
+  "Returns a vector containing the verticies if the given coordinate frame."
+  [{:keys [origin a b]}]
+  [origin (v+ origin a) (v+ origin a b) (v+ origin b)])
+
+(defrecord CoordinateFrame [origin a b]
+  ITemplate
+  (expand-template [this]
+    (let [vs (verticies this)]
+      (spline (map line vs (concat (rest vs) [(first vs)])))))
+
+  Bounded
+  (extent [this] this)
+
+  Affine
+  (transform [this xform f]
+    ;;REVIEW: This is klunky. I don't like it very much, but don't see a better
+    ;;method without reifying points. As nice as that would be theoretically, it
+    ;;would be a pain in the ass syntactically.
+    (CoordinateFrame. (move-point xform f origin)
+                      (move-point xform f a)
+                      (move-point xform f b))))
+
+
+(defn coordinate-frame [origin a b]
+  (CoordinateFrame. origin a b))
 
 ;; TODO: just use spec.
 
@@ -103,11 +131,12 @@
    :right        [1 0.5]
    :bottom       [0.5 0]})
 
-(defn relative-coords [[s t] {[x y] :origin w :width h :height}]
-  [(+ x (* s w)) (+ y (* t h))])
+(defn relative-coords [[s t] {:keys [origin a b]}]
+  (v+ origin (v* s a) (v* t b)))
 
 (defn point-in-frame
-  "Given a frame and a relative point, return the respective absolute point."
+  "Given a coordinate frame and a relative point, return the respective absolute
+  point."
   [f p]
   (if (keyword? p)
     (relative-coords (get position-map p) f)
@@ -121,23 +150,21 @@
     (when (valid-relative? k)
       (second k))))
 
-(defn frame-points
+(defn bound-points
   "Given a seq of points, return the smallest rectangle (aligned with the axes)
   that contains all of them."
   [ps]
+  ;; FIXME: This always returns a rectangle. We could alomst certainly get a
+  ;; better fit if we circumscribed the convex hull with a parallelogram. I
+  ;; don't have an algorithm for that at the moment though.
   (let [[[x1 y1] [x2 y2]] (math/bound-points ps)]
-    (assoc rectangle :origin [x1 y1] :width (- x2 x1) :height (- y2 y1))))
+    (CoordinateFrame. [x1 y1] [(- x2 x1) 0] [0 (- y2 y1)])))
 
-(defn verticies [{[x y] :origin w :width h :height}]
-  (let [x2 (+ x w)
-        y2 (+ y h)]
-    [[x y] [x2 y] [x2 y2] [x y2]]))
-
-(defn frame-rects
+(defn bound-all
   "Given a sequence of rectangles, returns the smalled single rectangle that
   contains all of them."
   [rects]
-  (frame-points (mapcat verticies rects)))
+  (bound-points (mapcat verticies rects)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Affine Transformations
@@ -146,22 +173,17 @@
 (deftype AffineWrapper [shape xform
                         ^:volatile-mutable cache]
 
-  Affine
-  (transform [this xf' f]
-    (-> shape
-        (transform xform (frame shape))
-        (transform xf' f)))
-
   IShape
   (dimension [_]
     (dimension shape))
   (boundary [_]
     (AffineWrapper. (boundary shape) xform nil))
 
-  Framed
-  (frame [_]
+  Bounded
+  (extent [_]
     (when (compact? shape)
-      (frame (transform shape xform (frame shape)))))
+      (let [coords (extent shape)]
+        (transform coords xform coords))))
 
   Compilable
   (compile [this compiler]
@@ -175,7 +197,7 @@
   (instance? AffineWrapper x))
 
 (defn aw-matrix [aw]
-  (matrix (.-xform aw) (frame (.-shape aw))))
+  (matrix (.-xform aw) (extent (.-shape aw))))
 
 (defn wrap-affine [shape xform]
   (AffineWrapper. shape xform nil))
@@ -312,14 +334,16 @@
   (transform [this xform f]
     (Line. (move-point xform f from) (move-point xform f to)))
 
-  Framed
-  (frame [_]
-    (let [[dx dy] (v- to from)]
-      (assoc rectangle :origin from :width dx :height dy)))
+  Bounded
+  (extent [_]
+    (bound-points [from to]))
 
   IShape
   (dimension [_] 1)
   (boundary [_] [from to]))
+
+(defn line [f t]
+  (Line. f t))
 
 (defrecord Bezier [from to c1 c2]
   Affine
@@ -327,23 +351,19 @@
     (let [[f' t' c1' c2'] (map #(move-point xform box %) [from to c1 c2])]
       (Bezier. f' t' c1' c2')))
 
-  Framed
-  (frame [_]
-    (frame-points [from to c1 c2]))
+  Bounded
+  (extent [_]
+    (bound-points [from to c1 c2]))
 
   IShape
   (dimension [_] 1)
   (boundary [_] [from to]))
 
 (defrecord Arc [centre radius from to clockwise?]
-  Framed
-  (frame [_]
+  Bounded
+  (extent [_]
     ;; TODO: Refine. We can do a lot better than this in general.
-    (let [[x y] centre]
-      (assoc rectangle
-             :origin [(- x radius) (- y radius)]
-             :width  (* 2 radius)
-             :height (* 2 radius))))
+    (bound-points ((juxt v- v+) centre [radius radius])))
 
   IShape
   (dimension [_] 1)
@@ -366,13 +386,9 @@
   (dimension [_] 2)
   (boundary [_] (Arc. centre radius 0 (* 2 math/pi) false))
 
-  Framed
-  (frame [_]
-    (let [[x y] centre]
-      (assoc rectangle
-             :origin [(- x radius) (- y radius)]
-             :width  (* 2 radius)
-             :height (* 2 radius)))))
+  Bounded
+  (extent [_]
+    (bound-points ((juxt v- v+) centre [radius radius]))))
 
 (defrecord Spline [segments]
   Affine
@@ -381,10 +397,10 @@
     ;; relative to? I think this is broken
     (Spline. (map #(transform % xform f) segments)))
 
-  Framed
-  (frame [_]
+  Bounded
+  (extent [_]
     (when (every? compact? segments)
-      (frame-rects (map frame segments))))
+      (bound-all (map extent segments))))
 
   IShape
   (dimension [_] 1)
@@ -400,10 +416,10 @@
     (ClosedSpline.
      (map #(transform % xform f) segments)))
 
-  Framed
-  (frame [_]
+  Bounded
+  (extent [_]
     (when (every? compact? segments)
-      (frame-rects (map frame segments))))
+      (bound-all (map extent segments))))
 
   IShape
   (dimension [_] 2)
@@ -430,9 +446,9 @@
             verticies
             (concat (rest verticies) [(first verticies)])))))
 
-  Framed
-  (frame [this]
-    this)
+  Bounded
+  (extent [this]
+    (coordinate-frame origin [width 0] [0 height]))
 
   ITemplate
   (expand-template [_]
@@ -469,10 +485,10 @@
   (transform [_ xform f]
     (Style. style (transform shape xform f)))
 
-  Framed
-  (frame [_]
+  Bounded
+  (extent [_]
     (when (compact? shape)
-      (frame shape))))
+      (extent shape))))
 
 (defn style [style shape]
   (Style. style shape))
@@ -519,7 +535,7 @@
    (map #(transform % xform f) this)))
 
 (util/implement-sequentials
-  Framed
-  (frame [this]
+  Bounded
+  (extent [this]
     (when (every? compact? this)
-      (frame-rects (map frame this)))))
+      (bound-all (map extent this)))))
