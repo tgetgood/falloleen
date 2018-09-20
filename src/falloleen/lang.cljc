@@ -95,12 +95,12 @@
 
   Affine
   (transform [this xform f]
-    ;;REVIEW: This is klunky. I don't like it very much, but don't see a better
-    ;;method without reifying points. As nice as that would be theoretically, it
-    ;;would be a pain in the ass syntactically.
-    (CoordinateFrame. (move-point xform f origin)
-                      (move-point xform f a)
-                      (move-point xform f b))))
+    (let [oa' (move-point xform f (v+ a origin))
+          ob' (move-point xform f (v+ b origin))
+          o'  (move-point xform f origin)]
+      (CoordinateFrame. o'
+                        (v- oa' o')
+                        (v- ob' o')))))
 
 
 (defn coordinate-frame [origin a b]
