@@ -233,12 +233,7 @@
   "Returns a frame for shape. A frame is three vectors which are the corner,
   width, and height vectors of a rectangle which fully contains the shape,"
   [shape]
-  (when (framed? shape)
-    (cond
-      (satisfies? lang/Bounded shape)     (lang/extent shape)
-      (satisfies? lang/IContainer shape) (frame (lang/contents shape))
-      (template? shape)                  (frame (lang/expand-template shape))
-      :else                              nil)))
+  (lang/extent* shape))
 
 (defn closed?
   "Returns true iff shape has no boundary."

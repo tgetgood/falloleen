@@ -60,17 +60,24 @@
 (defn template? [shape]
   (satisfies? ITemplate shape))
 
-(defn compact? [shape]
-  (cond
-    (satisfies? Bounded shape)     true
-    (satisfies? IContainer shape) (compact? (contents shape))
-    (template? shape)             (compact? (expand-template shape))
-    :else                         false))
+(defn wrap-expander [base-case f]
+  (fn inner [shape]
+    (cond
+      (base-case shape)             (f shape)
+      (satisfies? IContainer shape) (inner (contents shape))
+      (template? shape)             (inner (expand-template shape))
+      :else                         nil)))
+
+(def compact?
+  (wrap-expander (fn [x] (satisfies? Bounded x)) (constantly true)))
 
 (defn closed?
   "Returns true iff shape is compact and has no boundary."
   [shape]
   (and (compact? shape) (empty? (boundary shape))))
+
+(def extent*
+  (wrap-expander #(satisfies? Bounded %) extent))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Frames and Relative locations
@@ -182,7 +189,7 @@
   Bounded
   (extent [_]
     (when (compact? shape)
-      (let [coords (extent shape)]
+      (let [coords (extent* shape)]
         (transform coords xform coords))))
 
   Compilable
@@ -197,7 +204,7 @@
   (instance? AffineWrapper x))
 
 (defn aw-matrix [aw]
-  (matrix (.-xform aw) (extent (.-shape aw))))
+  (matrix (.-xform aw) (extent* (.-shape aw))))
 
 (defn wrap-affine [shape xform]
   (AffineWrapper. shape xform nil))
@@ -538,4 +545,4 @@
   Bounded
   (extent [this]
     (when (every? compact? this)
-      (bound-all (map extent this)))))
+      (bound-all (map extent* this)))))
