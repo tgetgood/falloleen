@@ -95,7 +95,7 @@
   ITemplate
   (expand-template [this]
     (let [vs (verticies this)]
-      (spline (map line vs (concat (rest vs) [(first vs)])))))
+      (spline (map line vs (rest (cycle vs))))))
 
   Bounded
   (extent [this] this)
@@ -449,9 +449,7 @@
           h' (move-point xform f [x (+ y height)])
           verticies [o' (map + o' w') (map + o' w' h') (map + o' h')]]
       (ClosedSpline.
-       (map #(Line. %1 %2)
-            verticies
-            (concat (rest verticies) [(first verticies)])))))
+       (map #(Line. %1 %2) verticies (rest (cycle verticies))))))
 
   Bounded
   (extent [this]
@@ -464,9 +462,7 @@
           y2      (+ y1 height)
           verticies [[x1 y1] [x2 y1] [x2 y2] [x1 y2]]]
     (closed-spline
-     (map #(Line. %1 %2)
-          verticies
-          (concat (rest verticies) [(first verticies)]))))))
+     (map #(Line. %1 %2) verticies (rest (cycle verticies)))))))
 
 (def rectangle
   (map->Rectangle

@@ -157,8 +157,7 @@
                            :from x
                            :to   y))
                    (partition 2 (interleave verticies
-                                            (concat (rest verticies)
-                                                    [(first verticies)]))))]
+                                            (rest (cycle verticies)))))]
     (region edges)))
 
 (deftemplate annulus
