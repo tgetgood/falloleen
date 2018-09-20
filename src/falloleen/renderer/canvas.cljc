@@ -60,15 +60,17 @@
 
   AffineWrapper
   (cmds [this]
-    (let [[a b c d x y] (lang/aw-matrix this)
-          shape (.-shape this)]
-      (conj
-       (into
-        [:save
-         [:transform a b c d x y]]
-        (cmds shape))
-       :restore)
-      ))
+    (lang/compile this
+                  (fn [this]
+                    (let [[a b c d x y] (lang/aw-matrix this)
+                          shape (.-shape this)]
+                      (conj
+                       (into
+                        [:save
+                         [:transform a b c d x y]]
+                        (cmds shape))
+                       :restore)
+                      ))))
 
   RawText
   (cmds [{:keys [text]}]
