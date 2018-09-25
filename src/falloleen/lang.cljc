@@ -1,6 +1,7 @@
 (ns falloleen.lang
-    (:require [falloleen.math :as math :refer [v+ v- v*]]
-              [falloleen.util :as util :include-macros true]))
+  (:refer-clojure :exclude [compile])
+  (:require [falloleen.math :as math :refer [v+ v- v*]]
+            [falloleen.util :as util :include-macros true]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Protocols
