@@ -1,6 +1,7 @@
 (ns falloleen.hosts
   #?
   (:clj (:require
+         [falloleen.hosts.jfx]
          [falloleen.lang :as lang])
    :cljs (:require
           [goog.object :as obj]
