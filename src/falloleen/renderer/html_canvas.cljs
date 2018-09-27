@@ -1,4 +1,6 @@
-(ns falloleen.renderer.html-canvas)
+(ns falloleen.renderer.html-canvas
+  (:require [falloleen.math :as math]
+            [falloleen.renderer.canvas-compiler :as compiler]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Styling Stack Machine
@@ -115,21 +117,21 @@
         nm (/ m (falloleen.util/magnitude a b c d))
         nt (math/comp-atx t (rest i))]
     (.transform ctx a c b d x y)
-    #?(:cljs (unchecked-set ctx "lineWidth" nm))
+    (unchecked-set ctx "lineWidth" nm)
     (assoc-style stack
                  :transform nt
                  :line-width nm)))
 
 (defmethod run-stack! :line-width
   [[_ m] ctx stack]
-  #?(:cljs (unchecked-set ctx "lineWidth" m))
+  (unchecked-set ctx "lineWidth" m)
   stack)
 
 (defmethod run-stack! :stroke
   [[_ m] ctx stack]
   (if (free? stack :stroke)
     (let [p (if (= m :none) "rgba(0,0,0,0)" m)]
-      #?(:cljs (unchecked-set ctx "strokeStyle" p))
+      (unchecked-set ctx "strokeStyle" p)
       (assoc-style stack :stroke m))
     stack))
 
@@ -137,7 +139,7 @@
   [[_ m] ctx stack]
   (if (free? stack :fill)
     (let [p (if (= m :none) "rgba(0,0.0,0)" m)]
-      #?(:cljs (unchecked-set ctx "fillStyle" p))
+      (unchecked-set ctx "fillStyle" p)
       (assoc-style stack :fill m))
     stack))
 
@@ -145,7 +147,7 @@
   [[k m] ctx stack]
   (if (free? stack :font)
     (do
-      #?(:cljs (unchecked-set ctx "font" m))
+      (unchecked-set ctx "font" m)
       (assoc-style stack :font m))
     stack))
 
@@ -153,7 +155,7 @@
   [[_ m] ctx stack]
   (if (free? stack :opacity)
     (do
-      #?(:cljs (unchecked-set ctx "globalAlpha" m))
+      (unchecked-set ctx "globalAlpha" m)
       (assoc-style stack :opacity m))
     stack))
 
@@ -167,7 +169,7 @@
   (.clearRect ctx 0 0 (-> ctx .-canvas .-width) (-> ctx .-canvas .-height)))
 
 (defn simple-render [shape ctx]
-  (clear-screen! ctx w h)
+  (clear-screen! ctx)
   (reduce (fn [acc x] (run-stack! x ctx acc))
           init-stack
-          (cmds shape)))
+          (compiler/cmds shape)))
