@@ -7,7 +7,7 @@
   </div>"
   (:require [goog.object :as obj]))
 
-(defn canvas-elem [id]
+(defn get-elem [id]
   (js/document.getElementById  id))
 
 (defn canvas-container [id]
@@ -27,7 +27,7 @@
 
 (defn fill-container! [id]
   (let [[w h :as dim] (canvas-container-dimensions id)]
-    (set-canvas-size! (canvas-elem id) dim)))
+    (set-canvas-size! (get-elem id) dim)))
 
 (defn watch-resize [cb]
   (let [running (atom false)]
@@ -39,3 +39,18 @@
                  (when (compare-and-set! running true false)
                    (cb)))
                200))))))
+
+(defn init-canvas
+  "Clears children of the main element and adds a canvas beneath it."
+  [opts]
+  (let [id (get opts :id "app")
+        elem (get-elem id)
+        c (js/document.createElement "cavas")]
+    (unchecked-set elem "innerHTML" "")
+    (.appendChild elem c)
+    (let [ctx (.getContext c "2d")]
+      (when-let [s (:size opts)]
+        (if (= s :fullscreen)
+          (set-canvas-size! c (canvas-container-dimensions id))
+          (set-canvas-size! c s)))
+      {:canvas c :ctx ctx :elem elem})))

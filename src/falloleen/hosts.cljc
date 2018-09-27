@@ -3,30 +3,37 @@
   (:clj (:require
          [falloleen.hosts.jfx :as jfx]
          [falloleen.lang :as lang]
-         [falloleen.renderer.canvas :as renderer])
+         [falloleen.renderer.fx-canvas :as renderer])
    :cljs (:require
           [goog.object :as obj]
           [falloleen.hosts.browser-canvas :as browser]
           [falloleen.lang :as lang]
-          [falloleen.renderer.canvas :as renderer])))
+          [falloleen.renderer.html-canvas :as renderer])))
 
 (defn default-host [opts]
   #?(:cljs
-     (let [id (get opts :id "canvas")
-           elem (browser/canvas-elem id)
-           ctx (browser/render-context elem)]
-       (when-let [s (:size opts)]
-         (if (= s :fullscreen)
-           (browser/fill-container! id)
-           (browser/set-canvas-size! elem s)))
+     (let [state (atom nil)]
        (reify lang/Host
-         (width [_] (obj/get elem "width"))
-         (height [_] (obj/get elem "height"))
-         (render [this shape]
-           (renderer/simple-render shape ctx))))
+         (width [_]
+           (let [elem (:elem @state)]
+             (obj/get elem "width")))
+         (height [_]
+           (let [elem (:elem @state)]
+             (obj/get elem "height")))
+         (initialise [_]
+           (when-not @state
+             (reset! state (browser/init-canvas opts))))
+         (render [_ shape]
+           (println @state)
+           (let [ctx (:ctx @state)]
+             (renderer/simple-render shape ctx)))))
      :clj
      (reify lang/Host
        (width [_] (jfx/width))
        (height [_] (jfx/height))
+       (initialise [_]
+         ;; TODO: Make this idempotent.
+         (jfx/start-fx!))
+       (shutdown [_] (jfx/kill-fx!))
        (render [this shape]
          (renderer/simple-render shape (jfx/ctx))))))
