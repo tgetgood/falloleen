@@ -52,6 +52,8 @@
   suppose)."
   (width [this] "Returns current width of the window.")
   (height [this] "Returns current height of the window".)
+  (initialise [this] "Start the graphics system.")
+  (shutdown [this] "Stop and cleanup the graphics system.")
   (render [this shape] "Render shape to this host."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
