@@ -15,10 +15,10 @@
      (let [state (atom nil)]
        (reify lang/Host
          (width [_]
-           (let [elem (:elem @state)]
+           (let [elem (:canvas @state)]
              (obj/get elem "width")))
          (height [_]
-           (let [elem (:elem @state)]
+           (let [elem (:canvas @state)]
              (obj/get elem "height")))
          (initialise [_]
            (when-not @state
@@ -33,7 +33,9 @@
        (height [_] (jfx/height))
        (initialise [_]
          ;; TODO: Make this idempotent.
-         (jfx/start-fx!))
-       (shutdown [_] (jfx/kill-fx!))
+         (when (nil? @jfx/instance)
+           (jfx/start-fx!)))
+       (shutdown [_]
+         (jfx/kill-fx!))
        (render [this shape]
          (renderer/simple-render shape (jfx/ctx))))))

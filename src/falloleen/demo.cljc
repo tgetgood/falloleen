@@ -3,11 +3,10 @@
             [falloleen.hosts :as hosts]
             [falloleen.lang :as lang]))
 
-(defonce host (atom nil))
+(defonce host (hosts/default-host {:size :fullscreen}))
 
 (defn start-once! []
-  (reset! host (hosts/default-host {:size :fullscreen}))
-  (lang/initialise @host))
+  (lang/initialise host))
 
 (defn go []
-  (core/draw! [(assoc core/circle :radius 200)] @host))
+  (core/draw! [(assoc core/circle :radius 200)] host))
