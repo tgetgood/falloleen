@@ -32,8 +32,7 @@
        (width [_] (jfx/width))
        (height [_] (jfx/height))
        (initialise [_]
-         ;; TODO: Make this idempotent.
-         (when (nil? @jfx/instance)
+         (when (jfx/uninitialised?)
            (jfx/start-fx!)))
        (shutdown [_]
          (jfx/kill-fx!))

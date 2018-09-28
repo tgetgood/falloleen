@@ -5,13 +5,14 @@
            [javafx.scene.canvas Canvas GraphicsContext]
            javafx.stage.Stage))
 
-(defonce instance
+(defonce ^:private instance
   (atom nil))
 
-(defonce state
+(defonce ^:private state
   (atom nil))
 
-;; Drawing
+(defn uninitialised? []
+  (nil? @instance))
 
 (defn width []
   (.getWidth ^Canvas (:canvas @state)))
@@ -21,21 +22,6 @@
 
 (defn ctx []
   (:gc @state))
-
-(defn clear! []
-  (when @state
-    (let [^GraphicsContext gc (ctx)
-          ^Canvas canvas      (get @state :canvas)]
-      (.clearRect gc 0 0 (.getWidth canvas) (.getHeight canvas)))))
-
-(defn draw! [cmds]
-  (when @state
-    (clear!)
-    (let [^GraphicsContext gc (ctx)]
-      (doto gc
-        (.moveTo 0 100)
-        (.lineTo 100 0)
-        (.stroke)))))
 
 ;;;;; Animation Timer
 
