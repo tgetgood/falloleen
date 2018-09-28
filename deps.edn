@@ -1,3 +1,4 @@
 {:deps
- {net.cgrand/macrovich {:mvn/version "0.2.1"}}
+ {net.cgrand/macrovich {:mvn/version "0.2.1"}
+  org.clojure/tools.namespace {:mvn/version "0.2.11"}}
  :paths ["src" "classes" "target"]}

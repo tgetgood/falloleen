@@ -1,4 +1,8 @@
-(ns falloleen.hosts.jfx.impl)
+(ns falloleen.hosts.jfx.impl
+  (:require [clojure.tools.namespace.repl :as nsr]))
+
+(nsr/disable-unload!)
+(nsr/disable-reload!)
 
 (defonce ^:private the-instance
   (atom nil))
