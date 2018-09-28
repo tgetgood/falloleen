@@ -28,14 +28,17 @@
            (let [ctx (:ctx @state)]
              (renderer/simple-render shape ctx)))))
      :clj
-     (reify lang/Host
-       (width [_] (jfx/width))
-       (height [_] (jfx/height))
-       (initialise [_]
-         (when-not (jfx/instance)
-           (jfx/start-fx!)))
-       (shutdown [_]
-         (jfx/kill-fx!))
+     (do
+       (when-not (jfx/instance)
+         (jfx/start-fx!))
+       (reify lang/Host
+         (width [_] (jfx/width))
+         (height [_] (jfx/height))
+         (initialise [_]
+           (when-not (jfx/instance)
+             (jfx/start-fx!)))
+         (shutdown [_]
+           (jfx/kill-fx!))
 
-       (render [this shape]
-         (renderer/simple-render shape (jfx/ctx))))))
+         (render [this shape]
+           (renderer/simple-render shape (jfx/ctx)))))))
