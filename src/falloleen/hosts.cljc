@@ -32,9 +32,10 @@
        (width [_] (jfx/width))
        (height [_] (jfx/height))
        (initialise [_]
-         (when (jfx/uninitialised?)
+         (when-not (jfx/instance)
            (jfx/start-fx!)))
        (shutdown [_]
          (jfx/kill-fx!))
+
        (render [this shape]
          (renderer/simple-render shape (jfx/ctx))))))

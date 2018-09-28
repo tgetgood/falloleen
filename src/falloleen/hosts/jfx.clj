@@ -1,67 +1,29 @@
 (ns falloleen.hosts.jfx
-  (:import javafx.animation.AnimationTimer
+  (:require [falloleen.hosts.jfx.impl :as impl])
+  (:import falloleen.hosts.jfx.classes.GRoot
            [javafx.application Application Platform]
-           [javafx.scene Group Scene]
-           [javafx.scene.canvas Canvas GraphicsContext]
-           javafx.stage.Stage))
+           [javafx.scene.canvas Canvas GraphicsContext]))
 
-(defonce ^:private instance
-  (atom nil))
+;;;;; Application object API indirection
 
-(defonce ^:private state
-  (atom nil))
-
-(defn uninitialised? []
-  (nil? @instance))
+(defn ^falloleen.hosts.jfx.classes.GRoot instance []
+  (when (impl/initialised?)
+    (impl/instance)))
 
 (defn width []
-  (.getWidth ^Canvas (:canvas @state)))
+  (.getWidth ^Canvas (:canvas @(.-state (instance)))))
 
 (defn height []
-  (.getHeight ^Canvas (:canvas @state)))
+  (.getHeight ^Canvas (:canvas @(.-state (instance)))))
 
-(defn ctx []
-  (:gc @state))
+(defn ^GraphicsContext ctx []
+  (:gc @(.-state (instance))))
 
-;;;;; Animation Timer
-
-(gen-class :name falloleen.hosts.jfx.Timer
-           :extends javafx.animation.AnimationTimer
-           :prefix "timer-")
-
-(defn timer-handle [this time]
-  )
-
-;;;;; Main Application
-
-(gen-class :name falloleen.hosts.jfx.Application
-           :extends javafx.application.Application
-           :main false
-           :post-init intern-instance)
-
-(defn -intern-instance [this & args]
-  (if @instance
-    (println "Instance already set. Don't reset it.")
-    (reset! instance this)))
-
-(defn ^:private -start [^falloleen.hosts.jfx.Application this ^Stage s]
-  (let [root   (Group.)
-        canvas (Canvas. 500 500)
-        gc     (.getGraphicsContext2D canvas)]
-    (reset! state {:root   root
-                   :canvas canvas
-                   :gc     gc
-                   :stage  s})
-    (.. root getChildren (add canvas))
-    (doto s
-      (.setScene (Scene. root))
-      .show)))
-
-;; Invocation
+;;;;; Graphics system
 
 (defonce ^Thread render-thread
   (Thread. (fn []
-             (Application/launch falloleen.hosts.jfx.Application
+             (Application/launch falloleen.hosts.jfx.classes.GRoot
                                  (make-array String 0)))))
 
 (defn start-fx! []
