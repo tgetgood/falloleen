@@ -63,24 +63,23 @@
 (defn template? [shape]
   (satisfies? ITemplate shape))
 
-(defn wrap-expander [base-case f]
-  (fn inner [shape]
-    (cond
-      (base-case shape)             (f shape)
-      (satisfies? IContainer shape) (inner (contents shape))
-      (template? shape)             (inner (expand-template shape))
-      :else                         nil)))
+(defn wrap-expander [pred f shape]
+  (cond
+    (pred shape)                  (f shape)
+    (satisfies? IContainer shape) (recur pred f (contents shape))
+    (template? shape)             (recur pred f (expand-template shape))
+    :else                         nil))
 
-(def compact?
-  (wrap-expander (fn [x] (satisfies? Bounded x)) (constantly true)))
+(defn compact? [shape]
+  (wrap-expander (fn [x] (satisfies? Bounded x)) (constantly true) shape))
 
 (defn closed?
   "Returns true iff shape is compact and has no boundary."
   [shape]
   (and (compact? shape) (empty? (boundary shape))))
 
-(def extent*
-  (wrap-expander #(satisfies? Bounded %) extent))
+(defn extent* [shape]
+  (wrap-expander #(satisfies? Bounded %) extent shape))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Frames and Relative locations
