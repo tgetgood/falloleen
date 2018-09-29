@@ -5,7 +5,9 @@
   <div id='canvas-container'>
     <canvas id='canvas'></canvas>
   </div>"
-  (:require [goog.object :as obj]))
+  (:require [falloleen.lang :as lang]
+            [falloleen.renderer.html-canvas :as renderer]
+            [goog.object :as obj]))
 
 (defn get-elem [id]
   (js/document.getElementById  id))
@@ -43,7 +45,13 @@
        "height:100%;"
        "margin:0"))
 
-(defn init-canvas
+(defrecord BrowserCanvas [container canvas ctx]
+  lang/Host
+  (dimensions [_] [(obj/get canvas "width") (obj/get canvas "height")])
+  (render [_ shape]
+    (renderer/simple-render shape ctx)))
+
+(defn make-host [opts]
   "Clears children of the main element and adds a canvas beneath it."
   [opts]
   (let [id   (get opts :id "app")
@@ -64,4 +72,4 @@
 
           :fill-container (set-canvas-size! c (element-dimensions id))
           :else           (set-canvas-size! c s)))
-      {:canvas c :ctx ctx :elem elem})))
+      (BrowserCanvas. elem c ctx))))

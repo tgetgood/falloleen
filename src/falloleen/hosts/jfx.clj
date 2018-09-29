@@ -1,23 +1,17 @@
 (ns falloleen.hosts.jfx
-  (:require [falloleen.hosts.jfx.impl :as impl])
+  (:require [falloleen.hosts.jfx.impl :as impl]
+            [falloleen.lang :as lang]
+            [falloleen.renderer.fx-canvas :as renderer])
   (:import falloleen.hosts.jfx.classes.GRoot
            [javafx.application Application Platform]
-           [javafx.scene.canvas Canvas GraphicsContext]))
+           [javafx.scene.canvas Canvas GraphicsContext]
+           javafx.stage.Stage))
 
 ;;;;; Application object API indirection
 
 (defn ^falloleen.hosts.jfx.classes.GRoot instance []
   (when (impl/initialised?)
     (impl/instance)))
-
-(defn width []
-  (.getWidth ^Canvas (:canvas @(.-state (instance)))))
-
-(defn height []
-  (.getHeight ^Canvas (:canvas @(.-state (instance)))))
-
-(defn ^GraphicsContext ctx []
-  (:gc @(.-state (instance))))
 
 ;;;;; Graphics system
 
@@ -32,3 +26,14 @@
 
 (defn kill-fx! []
   (Platform/exit))
+
+(defrecord JFXHost [^Stage stage ^Canvas canvas ^GraphicsContext ctx]
+  lang/Host
+  (dimensions [_] [(.getWidth canvas) (.getHeight canvas)])
+  (render [_ shape] (renderer/simple-render shape ctx)))
+
+(defn make-host [opts]
+  (when-not (instance)
+    (start-fx!))
+  (let [{:keys [canvas stage gc]} @(.-state (instance))]
+    (JFXHost. stage canvas gc)))

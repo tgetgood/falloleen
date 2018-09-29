@@ -50,10 +50,7 @@
 (defprotocol Host
   "A host is anything capable of rendering an image to a screen (or to paper I
   suppose)."
-  (width [this] "Returns current width of the window.")
-  (height [this] "Returns current height of the window".)
-  (initialise [this] "Start the graphics system.")
-  (shutdown [this] "Stop and cleanup the graphics system.")
+  (dimensions [this] "Returns current dimensions of the window.")
   (render [this shape] "Render shape to this host."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -205,7 +202,7 @@
 (defn aw? [x]
   (instance? AffineWrapper x))
 
-(defn aw-matrix [aw]
+(defn aw-matrix [^AffineWrapper aw]
   (matrix (.-xform aw) (extent* (.-shape aw))))
 
 (defn wrap-affine [shape xform]

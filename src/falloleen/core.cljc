@@ -264,6 +264,7 @@
   "Draws shape to host. The host determines what drawing means. Return value
   isn't generally meaningful."
   [shape host]
-  (lang/render host
-               (lang/wrap-affine shape
-                   (lang/affine-transformation 1 0 0 -1 0 (lang/height host)))))
+  (let [[_ h] (lang/dimensions host)]
+    (lang/render host
+                 (lang/wrap-affine shape
+                                   (lang/affine-transformation 1 0 0 -1 0 h)))))
