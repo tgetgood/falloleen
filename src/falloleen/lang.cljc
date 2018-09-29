@@ -374,7 +374,7 @@
   IShape
   (dimension [_] 1)
   (boundary [_]
-    (when ((< (math/abs (- from to)) (* 2 math/pi)))
+    (when (< (math/abs (- from to)) (* 2 math/pi))
       (->> [from to]
            (map (juxt math/cos math/sin))
            (map #(v* radius %))
