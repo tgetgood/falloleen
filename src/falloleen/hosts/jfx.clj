@@ -4,16 +4,9 @@
             [falloleen.renderer.fx-canvas :as renderer])
   (:import falloleen.hosts.jfx.classes.GRoot
            [javafx.application Application Platform]
+           [javafx.scene Group Scene]
            [javafx.scene.canvas Canvas GraphicsContext]
-           javafx.stage.Stage))
-
-;;;;; Application object API indirection
-
-(defn ^falloleen.hosts.jfx.classes.GRoot instance []
-  (when (impl/initialised?)
-    (impl/instance)))
-
-;;;;; Graphics system
+           [javafx.stage Stage]))
 
 (defonce ^Thread render-thread
   (Thread. (fn []
@@ -27,13 +20,31 @@
 (defn kill-fx! []
   (Platform/exit))
 
-(defrecord JFXHost [^Stage stage ^Canvas canvas ^GraphicsContext ctx]
+(defrecord JFXHost [^Canvas canvas ^GraphicsContext ctx]
+  ;; N.B.: If I want to programmatically kill the window I need to keep the
+  ;; stage around.
   lang/Host
   (dimensions [_] [(.getWidth canvas) (.getHeight canvas)])
   (render [_ shape] (renderer/simple-render shape ctx)))
 
 (defn make-host [opts]
-  (when-not (instance)
+  (when-not (realized? impl/instance)
     (start-fx!))
-  (let [{:keys [canvas stage gc]} @(.-state (instance))]
-    (JFXHost. stage canvas gc)))
+  @impl/instance
+  (let [ugh (promise)]
+    (Platform/runLater
+     (proxy [Runnable] []
+       (run []
+         (let [[w h]  (get opts :size [640 480])
+               stage  (Stage.)
+               root   (Group.)
+               canvas (Canvas. w h)]
+           (.setResizable stage true)
+           (.. root getChildren (add canvas))
+           (doto stage
+             (.setScene (Scene. root))
+             .show)
+           (deliver ugh canvas)))))
+    (let [^Canvas canvas @ugh
+          ctx            (.getGraphicsContext2D canvas)]
+      (JFXHost. canvas ctx))))

@@ -7,4 +7,4 @@
 
 (defn default-host [opts]
   #?(:cljs (browser/make-host opts)
-     :clj (jfx/make-host opts)))
+     :clj  (jfx/make-host opts)))
