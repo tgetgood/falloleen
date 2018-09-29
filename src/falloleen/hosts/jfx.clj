@@ -4,9 +4,10 @@
             [falloleen.renderer.fx-canvas :as renderer])
   (:import falloleen.hosts.jfx.classes.GRoot
            [javafx.application Application Platform]
-           [javafx.scene Group Scene]
            [javafx.scene.canvas Canvas GraphicsContext]
-           [javafx.stage Stage]))
+           javafx.scene.layout.StackPane
+           javafx.scene.Scene
+           javafx.stage.Stage))
 
 (defonce ^Thread render-thread
   (Thread. (fn []
@@ -27,6 +28,10 @@
   (dimensions [_] [(.getWidth canvas) (.getHeight canvas)])
   (render [_ shape] (renderer/simple-render shape ctx)))
 
+(defn resizable-canvas [w h]
+  (proxy [javafx.scene.canvas.Canvas] [w h]
+    (isResizable [] true)))
+
 (defn make-host [opts]
   (when-not (realized? impl/instance)
     (start-fx!))
@@ -37,10 +42,12 @@
        (run []
          (let [[w h]  (get opts :size [640 480])
                stage  (Stage.)
-               root   (Group.)
-               canvas (Canvas. w h)]
+               root   (StackPane.)
+               canvas (resizable-canvas w h)]
            (.setResizable stage true)
            (.. root getChildren (add canvas))
+           (.. canvas widthProperty (bind (.widthProperty root)))
+           (.. canvas heightProperty (bind (.heightProperty root)))
            (doto stage
              (.setScene (Scene. root))
              .show)
