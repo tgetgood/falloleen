@@ -114,8 +114,10 @@
   all points."
   ;; TODO: Obvious candidate for slowness
   [points]
-  (let [xmin (apply min (map first points))
-        xmax (apply max (map first points))
-        ymin (apply min (map second points))
-        ymax (apply max (map second points))]
-    [[xmin ymin] [xmax ymax]]))
+  (if (seq points)
+    (let [xmin (apply min (map first points))
+          xmax (apply max (map first points))
+          ymin (apply min (map second points))
+          ymax (apply max (map second points))]
+      [[xmin ymin] [xmax ymax]])
+    [[0 0] [0 0]]))
