@@ -23,7 +23,10 @@
       `(extend-protocol ~prot
          ~@(mapcat (fn [a b] `[~a ~@b]) types (repeat methods))))))
 
-(defn magnitude [a b c d]
+(defn magnitude
+  "Returns the linear scale of the matrix [[a b][c d]]. Otherwise known as the
+  square root of the absolute value of the determinant."
+  [a b c d]
   ;; HACK: This works for symmetric linear transforms, but as soon as we start
   ;; talking about skews and asymmetric scalings, it breaks down. I don't see
   ;; any way to manage this without writing my own pixel shaders. Hopefully I do
