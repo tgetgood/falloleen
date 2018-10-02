@@ -1,18 +1,18 @@
 (ns falloleen.renderer.fx-canvas
   (:require [falloleen.lang :as lang]
             [falloleen.util :as util])
-  (:import [falloleen.lang AffineWrapper Circle Line]
+  (:import [falloleen.lang AffineWrapper Bezier Circle Line Spline]
            javafx.scene.canvas.GraphicsContext))
 
-(defn in-path? [stack]
-  (:path stack))
+;; GO GO dynamically scoped globals!!!
+(def ^:dynamic *state* {})
 
-(defn fill? [stack]
-  (when-let [f (:fill stack)]
+(defn fill? []
+  (when-let [f (:fill *state*)]
     (not= :none f)))
 
-(defn stroke? [stack]
-  (when-let [s (:stroke stack)]
+(defn stroke? []
+  (let [s (:stroke *state*)]
     (not= ::none s)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -22,45 +22,75 @@
 (defprotocol DirectExecutor
   "Shapes implementing this protocol can directly draw themselves to screen in
   recursive decent style."
-  (draw! [this ctx stack]))
+  (draw! [this ctx]))
 
-(util/implement-sequentials
-    DirectExecutor
-  (draw! [this ctx stack]
-    (run! #(draw! % ctx stack) this)))
+(defprotocol InPathExecutor
+  "Shapes which can be drawn as boundaries of regions."
+  (draw-path! [this ctx]))
+
+(util/implement-sequentials DirectExecutor
+  (draw! [this ctx]
+    (run! #(draw! % ctx) this)))
+
+(extend-protocol InPathExecutor
+  Object
+  (draw-path! [this ctx]
+    (println "I don't know how to draw a" (type this) "in a path."))
+
+  Line
+  (draw-path! [{[x1 y1] :from [x2 y2] :to} ^GraphicsContext ctx]
+    (.moveTo ctx x1 y1)
+    (.lineTo ctx x2 y2))
+
+  Bezier
+  (draw-path! [{[x1 y1] :from [cx1 cy1] :c1 [cx2 cy2] :c2 [x2 y2] :to}
+               ^GraphicsContext ctx]
+      (.moveTo ctx x1 y1)
+      (.bezierCurveTo ctx cx1 cy1 cx2 cy2 x2 y2)))
 
 (extend-protocol DirectExecutor
   Object
-  (draw! [this ctx stack]
+  (draw! [this ctx]
     (if (lang/template? this)
-      (draw! (lang/expand-template this) ctx stack)
+      (draw! (lang/expand-template this) ctx)
       (println "I don't know how to draw a" (type this))))
 
   AffineWrapper
-  (draw! [this ^GraphicsContext ctx stack]
+  (draw! [this ^GraphicsContext ctx]
     (let [current-atx (.getTransform ctx nil)
           current-width (.getLineWidth ctx)
           [a b c d x y] (lang/aw-matrix this)
           mag (util/magnitude a b c d)]
       (.transform ctx a c b d x y)
       (.setLineWidth ctx (/ current-width mag))
-      (draw! (.-shape this) ctx stack)
+      (draw! (.-shape this) ctx)
       (.setTransform ctx current-atx)
       (.setLineWidth ctx current-width)))
 
-  ;; Bezier
+  Bezier
+  (draw! [this ^GraphicsContext ctx]
+    (when (stroke?)
+      (.beginPath ctx)
+      (draw-path! this ctx)
+      (.stroke ctx)))
+
+  Spline
+  (draw! [{:keys [segments]} ^GraphicsContext ctx]
+    (.beginPath ctx)
+    (run! #(draw-path! % ctx) segments)
+    (when (stroke?)
+      (.stroke ctx)))
 
   Line
-  (draw! [{[x1 y1] :from [x2 y2] :to} ^GraphicsContext ctx stack]
+  (draw! [{[x1 y1] :from [x2 y2] :to} ^GraphicsContext ctx]
     (.strokeLine ctx x1 y1 x2 y2))
 
   Circle
-  (draw! [{[x y] :centre r :radius} ^GraphicsContext ctx stack]
-    (when (fill? stack)
+  (draw! [{[x y] :centre r :radius} ^GraphicsContext ctx]
+    (when (fill?)
       (.fillOval ctx x y r r))
-    (.strokeOval ctx x y r r)))
-
-
+    (when (stroke?)
+      (.strokeOval ctx x y r r))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; And go!
@@ -79,4 +109,4 @@
 
 (defn simple-render [shape ^GraphicsContext ctx]
   (clear! ctx)
-  (draw! shape ctx init-stack))
+  (draw! shape ctx))
