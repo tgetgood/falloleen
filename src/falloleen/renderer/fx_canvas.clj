@@ -1,7 +1,7 @@
 (ns falloleen.renderer.fx-canvas
   (:require [falloleen.lang :as lang]
             [falloleen.util :as util])
-  (:import [falloleen.lang AffineWrapper Bezier Circle Line Spline]
+  (:import [falloleen.lang AffineWrapper Bezier Circle Line Spline Style]
            javafx.scene.canvas.GraphicsContext))
 
 ;; GO GO dynamically scoped globals!!!
@@ -66,6 +66,15 @@
       (draw! (.-shape this) ctx)
       (.setTransform ctx current-atx)
       (.setLineWidth ctx current-width)))
+
+  Style
+  (draw! [{:keys [shape style]} ^GraphicsContext ctx]
+    (let [old-stroke (.getStroke ctx)]
+      (when (and (:stroke style) (not= :none (:stroke style)))
+        (.setStroke ctx (:stroke style)))
+      (binding [*state* (merge *state* style)]
+        (draw! shape ctx))
+      (.setStroke ctx old-stroke)))
 
   Bezier
   (draw! [this ^GraphicsContext ctx]
