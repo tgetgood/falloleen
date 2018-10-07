@@ -42,8 +42,9 @@
   have to be minimal, but the closer you can get, the better the results will
   generally be."))
 
-(defprotocol Compilable
-  (compile [this compiler]))
+(defprotocol InstanceCachced
+  (getc [this k])
+  (setc [this k v]))
 
 ;;;;; External Interface
 
@@ -176,14 +177,13 @@
 ;;;;; Affine Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftype AffineWrapper [shape xform cache
-                        ^:volatile-mutable cache2]
+(deftype AffineWrapper [shape xform cache]
 
   IShape
   (dimension [_]
     (dimension shape))
   (boundary [_]
-    (AffineWrapper. (boundary shape) xform (atom {}) nil))
+    (AffineWrapper. (boundary shape) xform (atom {})))
 
   Bounded
   (extent [_]
@@ -191,20 +191,16 @@
       (let [coords (extent* shape)]
         (transform coords xform coords))))
 
+  InstanceCachced
+  (getc [_ k]
+    (get @cache k))
+  (setc [_ k v]
+    (swap! cache assoc k v)
+    nil)
+
   IContainer
   (contents [_]
-    shape)
-
-  Compilable
-  (compile [this compiler]
-    (if cache2
-      cache2
-      (let [code (compiler this)]
-        (set! cache2 code)
-        code))))
-
-(defn cache [x]
-  (.-cache x))
+    shape))
 
 (defn aw? [x]
   (instance? AffineWrapper x))
@@ -213,7 +209,7 @@
   (matrix (.-xform aw) (extent* (.-shape aw))))
 
 (defn wrap-affine [shape xform]
-  (AffineWrapper. shape xform (atom {}) nil))
+  (AffineWrapper. shape xform (atom {})))
 
 ;;;;; Arbitrary Affine Transformation
 

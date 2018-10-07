@@ -49,7 +49,7 @@
 
   AffineWrapper
   (jsc [this]
-    (if-let [c (::code @(lang/cache this))]
+    (if-let [c (lang/getc this ::code)]
       c
       (let [[a b c d x y] (lang/aw-matrix this)
             mag (falloleen.util/magnitude a b c d)
@@ -58,7 +58,7 @@
                       "ctx.lineWidth=ctx.lineWidth/" mag ";"
                       (jsc (lang/contents this))
                       "ctx.restore();")]
-        (swap! (lang/cache this) assoc ::code code)
+        (lang/setc this ::code code)
         code)))
 
   Line
