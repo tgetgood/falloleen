@@ -176,14 +176,14 @@
 ;;;;; Affine Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftype AffineWrapper [shape xform
-                        ^:volatile-mutable cache]
+(deftype AffineWrapper [shape xform cache
+                        ^:volatile-mutable cache2]
 
   IShape
   (dimension [_]
     (dimension shape))
   (boundary [_]
-    (AffineWrapper. (boundary shape) xform nil))
+    (AffineWrapper. (boundary shape) xform (atom {}) nil))
 
   Bounded
   (extent [_]
@@ -191,13 +191,20 @@
       (let [coords (extent* shape)]
         (transform coords xform coords))))
 
+  IContainer
+  (contents [_]
+    shape)
+
   Compilable
   (compile [this compiler]
-    (if cache
-      cache
+    (if cache2
+      cache2
       (let [code (compiler this)]
-        (set! cache code)
+        (set! cache2 code)
         code))))
+
+(defn cache [x]
+  (.-cache x))
 
 (defn aw? [x]
   (instance? AffineWrapper x))
@@ -206,7 +213,7 @@
   (matrix (.-xform aw) (extent* (.-shape aw))))
 
 (defn wrap-affine [shape xform]
-  (AffineWrapper. shape xform nil))
+  (AffineWrapper. shape xform (atom {}) nil))
 
 ;;;;; Arbitrary Affine Transformation
 
