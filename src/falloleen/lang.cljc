@@ -156,29 +156,6 @@
     (when (valid-relative? k)
       (second k))))
 
-(def empty-frame (CoordinateFrame. [0 0] [0 0] [0 0]))
-
-(defn box-persist! [acc]
-  (let [{:keys [xmin xmax ymin ymax]} acc]
-    (CoordinateFrame. [xmin ymin] [(- xmax xmin) 0] [0 (- ymax ymin)])))
-
-(defn bound
-  ([] (transient {}))
-  ([acc] acc)
-  ([acc [x y]]
-   (if (zero? (count acc))
-     (assoc! acc :xmin x :xmax x :ymin y :ymax y)
-     (do
-       (if (< x (:xmin acc))
-         (assoc! acc :xmin x)
-         (when (< (:xmax acc) x)
-           (assoc! acc :xmax x)))
-       (if (< y (:ymin acc))
-         (assoc! acc :ymin y)
-         (when (< (:ymax acc) y)
-           (assoc! acc :ymax y)))))
-   acc))
-
 (defn bound-points
   "Given a seq of points, return the smallest rectangle (aligned with the axes)
   that contains all of them."
@@ -186,18 +163,14 @@
   ;; FIXME: This always returns a rectangle. We could alomst certainly get a
   ;; better fit if we circumscribed the convex hull with a parallelogram. I
   ;; don't have an algorithm for that at the moment though.
-  (if (seq ps)
-    (box-persist! (reduce bound (bound) ps))
-    empty-frame))
+  (let [[[x1 y1] [x2 y2]] (math/bound-points ps)]
+    (CoordinateFrame. [x1 y1] [(- x2 x1) 0] [0 (- y2 y1)])))
 
 (defn bound-all
   "Given a sequence of rectangles, returns the smalled single rectangle that
   contains all of them."
   [rects]
-  (if (seq rects)
-    (box-persist!
-     (transduce (comp (map extent*) (map verticies) cat) bound rects))
-    empty-frame))
+  (bound-points (mapcat verticies rects)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Affine Transformations
@@ -440,7 +413,7 @@
   Bounded
   (extent [_]
     (when (every? compact? segments)
-      (bound-all segments)))
+      (bound-all (map extent segments))))
 
   IShape
   (dimension [_] 1)
@@ -459,7 +432,7 @@
   Bounded
   (extent [_]
     (when (every? compact? segments)
-      (bound-all segments)))
+      (bound-all (map extent segments))))
 
   IShape
   (dimension [_] 2)
@@ -574,4 +547,4 @@
   Bounded
   (extent [this]
     (when (every? compact? this)
-      (bound-all this))))
+      (bound-all (map extent* this)))))
