@@ -64,7 +64,7 @@
     (.arc ctx x y r from to clockwise?))
 
   compiler/Transform
-  (exec [{:keys [a b c d x y]} ctx]
+  (exec [{[a b c d x y] :matrix} ctx]
     (let [mag (falloleen.util/magnitude a b c d)]
       (.transform ctx a c b d x y)
       (unchecked-set ctx "lineWidth" (/ (unchecked-get ctx "lineWidth") mag))))
@@ -98,5 +98,4 @@
 
 (defn simple-render [shape ctx]
   (clear-screen! ctx)
-  (.setTransform ctx 1 0 0 1 0 0)
   (exec (compiler/cmds shape) ctx))

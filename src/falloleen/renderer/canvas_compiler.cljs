@@ -24,9 +24,9 @@
 (defrecord EndFigure [])
 (def end-figure (EndFigure.))
 
-(defrecord Transform [a b c d x y])
-(defn transform [a b c d x y]
-  (Transform. a b c d x y))
+(defrecord Transform [matrix])
+(defn transform [m]
+  (Transform. m))
 
 (defrecord MoveTo [x y])
 (defn move-to [x y]
@@ -111,13 +111,10 @@
   (cmds [this]
     (if-let [code (lang/getc this ::code)]
       code
-      (let [[a b c d x y] (lang/aw-matrix this)
-            shape         (lang/contents this)
-
-            code (instructions
+      (let [code (instructions
                   save
-                  (transform a b c d x y)
-                  (cmds shape)
+                  (transform (lang/aw-matrix this))
+                  (cmds (.-shape this))
                   restore)]
         (lang/setc this ::code code)
         code)))
