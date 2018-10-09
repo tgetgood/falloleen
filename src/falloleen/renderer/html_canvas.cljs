@@ -76,7 +76,7 @@
 
   compiler/Fill
   (exec [{m :colour} ctx]
-    (let [p (if (= m :none) "rgba(0,0.0,0)" m)]
+    (let [p (if (= m :none) "rgba(0,0,0,0)" m)]
       (unchecked-set ctx "fillStyle" p)))
 
   compiler/Font
