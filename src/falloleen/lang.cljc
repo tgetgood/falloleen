@@ -507,6 +507,17 @@
 ;; `text` template in core.
 (defrecord RawText [text])
 
+(defrecord Clip [shape frame]
+  IContainer
+  (contents [_]
+    shape)
+  Bounded
+  (extent [_]
+    frame))
+
+(def clip
+  (Clip. [] rectangle))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Shape Algebra
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

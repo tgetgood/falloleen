@@ -38,6 +38,10 @@
   (exec [_ ctx]
     (.stroke ctx))
 
+  compiler/Clip
+  (exec [_ ctx]
+    (.clip ctx))
+
   compiler/EndFigure
   (exec [_ ctx]
     (.stroke ctx)

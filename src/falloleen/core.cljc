@@ -145,6 +145,9 @@
                    (partition 2 (interleave points (rest points))))]
     (path segs)))
 
+(defn clip [shape frame]
+  (assoc lang/clip :shape shape :frame frame))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; Shapes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

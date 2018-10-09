@@ -15,6 +15,9 @@
 (defrecord Restore [])
 (def restore (Restore.))
 
+(defrecord Clip [])
+(def clip (Clip.))
+
 (defrecord BeginPath [])
 (def begin-path (BeginPath.))
 
@@ -61,6 +64,9 @@
                          (Fill. (if (= :none fill) :none (name fill))))
                        (when opacity (Opacity. opacity))
                        (when font (Font. font))])))
+
+(defn strip-last [is]
+  (InstructionSet. (butlast (:cmds is))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; Semi-abstract language
@@ -173,6 +179,15 @@
        (move-to x y)
        (instructions* (map path-cmds segments))
        end-figure)))
+
+  lang/Clip
+  (cmds [{:keys [shape frame]}]
+    (instructions
+     save
+     (strip-last (cmds frame))
+     clip
+     (cmds shape)
+     restore))
 
   lang/Style
   (cmds [{:keys [style shape]}]
