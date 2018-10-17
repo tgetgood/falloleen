@@ -177,7 +177,13 @@
 ;;;;; Affine Transformations
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(deftype AffineWrapper [shape xform cache]
+;; TODO: cache should definitely not be exposed like this. It also forces me to
+;; hack the cljs reader to read it over the wire.
+;;
+;; Possible solution: create factory like fn that wraps the AffineWrapper in a
+;; reify that implements InstanceCached with an atom in a closure. Would that do
+;; what I want? I want proxy in clj but that doesn't exist in cljs...
+(defrecord AffineWrapper [shape xform cache]
 
   IShape
   (dimension [_]
@@ -206,7 +212,7 @@
   (instance? AffineWrapper x))
 
 (defn aw-matrix [^AffineWrapper aw]
-  (matrix (.-xform aw) (extent* (.-shape aw))))
+  (matrix (:xform aw) (extent* (:shape aw))))
 
 (defn wrap-affine [shape xform]
   (AffineWrapper. shape xform (atom {})))
