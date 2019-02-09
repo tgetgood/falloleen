@@ -5,7 +5,7 @@
   (:import falloleen.hosts.jfx.classes.GRoot
            [javafx.application Application Platform]
            [javafx.scene.canvas Canvas GraphicsContext]
-           javafx.scene.layout.StackPane
+           javafx.scene.Group
            javafx.scene.Scene
            javafx.stage.Stage))
 
@@ -42,12 +42,12 @@
        (run []
          (let [[w h]  (get opts :size [640 480])
                stage  (Stage.)
-               root   (StackPane.)
+               root   (Group.)
                canvas (resizable-canvas w h)]
            (.setResizable stage true)
            (.. root getChildren (add canvas))
-           (.. canvas widthProperty (bind (.widthProperty root)))
-           (.. canvas heightProperty (bind (.heightProperty root)))
+           ;; (.. canvas widthProperty (bind (.widthProperty stage)))
+           ;; (.. canvas heightProperty (bind (.heightProperty stage)))
            (doto stage
              (.setScene (Scene. root))
              .show)
