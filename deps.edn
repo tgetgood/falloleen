@@ -1,4 +1,7 @@
 {:deps
- {net.cgrand/macrovich {:mvn/version "0.2.1"}
+ {net.cgrand/macrovich        {:mvn/version "0.2.1"}
   org.clojure/tools.namespace {:mvn/version "0.2.11"}}
- :paths ["src" "classes" "target"]}
+ :aliases {:main
+           {:jvm-opts ["--module-path" "/usr/lib/jvm/java-11-openjdk/lib/"
+                       "--add-modules" "javafx.controls"]}}
+ :paths    ["src" "classes" "target"]}

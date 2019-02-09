@@ -8,4 +8,4 @@ fi
 
 test -d classes || mkdir classes
 
-clojure -e "(compile 'falloleen.hosts.jfx.classes)"
+clojure -O:main -e "(compile 'falloleen.hosts.jfx.classes)"
