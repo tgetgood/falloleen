@@ -21,12 +21,13 @@
 (defn kill-fx! []
   (Platform/exit))
 
-(defrecord JFXHost [^Canvas canvas ^GraphicsContext ctx]
+(defrecord JFXHost [^Stage stage ^Canvas canvas ^GraphicsContext ctx]
   ;; N.B.: If I want to programmatically kill the window I need to keep the
   ;; stage around.
   lang/Host
+  (close! [_] (.close stage))
   (dimensions [_] [(.getWidth canvas) (.getHeight canvas)])
-  (render [_ shape] (renderer/simple-render shape ctx)))
+  (render [this shape] (renderer/simple-render shape this)))
 
 (defn resizable-canvas [w h]
   (proxy [javafx.scene.canvas.Canvas] [w h]
@@ -51,7 +52,7 @@
            (doto stage
              (.setScene (Scene. root))
              .show)
-           (deliver ugh canvas)))))
-    (let [^Canvas canvas @ugh
+           (deliver ugh [stage canvas])))))
+    (let [[stage canvas] @ugh
           ctx            (.getGraphicsContext2D canvas)]
-      (JFXHost. canvas ctx))))
+      (JFXHost. stage canvas ctx))))

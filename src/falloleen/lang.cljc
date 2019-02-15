@@ -49,8 +49,8 @@
 ;;;;; External Interface
 
 (defprotocol Host
-  "A host is anything capable of rendering an image to a screen (or to paper I
-  suppose)."
+  "A host is anything capable of rendering an image to a screen."
+  (close! [this] "Shutdown the window associated with this host.")
   (dimensions [this] "Returns current dimensions of the window.")
   (render [this shape] "Render shape to this host."))
 
@@ -511,7 +511,14 @@
 ;; Note that since we're inverting coordinates systematically to get back to the
 ;; Cartesian plane, raw text renders upside down. This is easily fixed by the
 ;; `text` template in core.
-(defrecord RawText [text])
+;; HACKITY HACK: These are arbitrary and wrong.
+(def font-height 9)
+(def char-width 11)
+
+(defrecord RawText [text]
+  Bounded
+  (extent [_]
+    (coordinate-frame [0 0] [(* (count text) char-width) 0] [0 font-height])))
 
 (defrecord Clip [shape frame]
   IContainer
