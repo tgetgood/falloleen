@@ -106,11 +106,7 @@
 
   RawText
   (draw! [{:keys [^String text]} {:keys [^GraphicsContext ctx ^Stage stage]}]
-    (-> stage
-        .getScene
-        .getRoot
-        .getChildren
-        (.add (javafx.scene.text.Text.)))))
+    (.strokeText ctx text 0 0)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; And go!
