@@ -18,6 +18,11 @@
   (Platform/setImplicitExit false)
   (.start render-thread))
 
+(defonce started
+  (try
+    (start-fx!)
+    (catch Exception e ::system-reload)))
+
 (defn kill-fx! []
   (Platform/exit))
 
@@ -54,5 +59,5 @@
              .show)
            (deliver ugh [stage canvas])))))
     (let [[stage canvas] @ugh
-          ctx            (.getGraphicsContext2D canvas)]
+          ctx            (.getGraphicsContext2D ^Canvas canvas)]
       (JFXHost. stage canvas ctx))))
