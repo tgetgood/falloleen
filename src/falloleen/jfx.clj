@@ -1,8 +1,14 @@
 (ns falloleen.jfx
+  (:require [falloleen.hosts.jfx :as host])
   (:import javafx.application.Platform
            javafx.scene.control.TextArea
            javafx.scene.Scene
            javafx.stage.Stage))
+
+(defonce started
+  (try
+    (host/start-fx!)
+    (catch Exception e ::system-reload)))
 
 (defonce code-stages (atom []))
 
